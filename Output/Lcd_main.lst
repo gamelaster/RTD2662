@@ -1,0 +1,1496 @@
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE LCD_MAIN
+OBJECT MODULE PLACED IN .\Output\Lcd_main.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Lcd_main.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PR
+                    -INT(.\Output\Lcd_main.lst) PREPRINT(.\Output\Lcd_main.i) OBJECT(.\Output\Lcd_main.obj)
+
+stmt level    source
+
+   1          //echo note :
+   2          //modify last date : 2004.07.16
+   3          
+   4          
+   5          #define __MAIN__
+   6          
+   7          #include "reg52.h"
+   8          #include "intrins.h"
+   9          
+  10          #include "Header\MAIN_DEF.H"
+  11          #include "Header\CONFIG.H"
+  12          #include "Header\ACCESS.H"
+  13          #include "Header\LCD_COEF.H"
+  14          #include "Header\LCD_FUNC.H"
+  15          #include "Header\LCD_AUTO.H"
+  16          #include "Header\LCD_MSG.H"
+  17          #include "Header\LCD_MAIN.H"
+  18          #include "Header\LCD_OSD.H"
+  19          #include "Header\FONT.H"
+  20          #include "Header\OSD.H"
+  21          #include "Header\INITIAL.H"
+  22          #include "Header\FRAME_SYNC.H"
+  23          #include "Header\SRC_CTRL.H"
+  24          #include "Header\DDC.H"
+  25          
+  26          #include "Header\uart.h"
+  27          #include "Header\DevOS.h"
+  28          #include "Header\Ksv.h"
+  29          
+  30          #include "Header\rgb_echo.H"
+  31          #include "Header\MTV512.h"
+  32          
+  33          #if(BURNIN_MODE)
+  34          void BurnIn()
+  35          {
+  36   1      
+  37   1        static unsigned char Color = 1;
+  38   1      
+  39   1        static unsigned char ColorCounter = 100;
+  40   1        
+  41   1        unsigned char ucTemp;
+  42   1      
+  43   1             if (ColorCounter)      
+  44   1                    ColorCounter   -= 1;
+  45   1             else
+  46   1             {  
+  47   2      
+  48   2                 Color += 1;
+  49   2                         if(Color == 17)
+  50   2                      Color = 1;
+  51   2      
+  52   2      
+  53   2                         ucTemp = 0x0d | (Color << 4);
+  54   2      
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 2   
+
+  55   2      //                 if (PANEL_ON == bPANEL_PWR)
+  56   2                         if ( _ON == bPanel_Status)
+  57   2                     {
+  58   3                    Free_Background();
+  59   3                    Wait_For_Event(EVENT_IEN_STOP);     // Wait for Frame End
+  60   3      
+  61   3                    RTDSetBit(OVL_CTRL_6D,0x3f,0x00); //Red
+  62   3                    RTDSetByte(BGCOLOR_CONTROL_6C,BurnInColor[0][Color]);
+  63   3      
+  64   3                      RTDSetBit(OVL_CTRL_6D,0x3f,0x40); //Green
+  65   3                    RTDSetByte(BGCOLOR_CONTROL_6C,BurnInColor[1][Color]);
+  66   3      
+  67   3                      RTDSetBit(OVL_CTRL_6D,0x3f,0x80); //Blue
+  68   3                    RTDSetByte(BGCOLOR_CONTROL_6C,BurnInColor[2][Color]);
+  69   3      
+  70   3                      RTDSetBit(VDIS_CTRL_20,0x5f,0x20 | DHS_MASK);
+  71   3      
+  72   3      
+  73   3                         }
+  74   2                 ColorCounter = 255;
+  75   2                                    
+  76   2             }            
+  77   1      }
+  78          #endif
+  79          
+  80          void Set_Task(unsigned char state)
+  81          {
+  82   1          switch (state)
+  83   1          {
+  84   2          case STATE_POWERUP :
+  85   2          case STATE_SOURCECHANGE :
+  86   2      
+  87   2              ucOSD_Page_Index    = 0;
+  88   2              ucOSD_Item_Index0   = 0;
+  89   2              ucOSD_Item_Index1   = 0;
+  90   2              ucOSD_Item_Index2   = 0;
+  91   2              b_rgb_VOLUME_STATUS = 0;
+  92   2      
+  93   2              usTaskCnt   = BEGIN_SOURCECHANGE;
+  94   2              break;
+  95   2      
+  96   2          case STATE_MODECHANGE :
+  97   2      
+  98   2      #if (RTDDEBUG == 0)
+  99   2              ucOSD_Page_Index    = 0;
+ 100   2              ucOSD_Item_Index0   = 0;
+ 101   2              ucOSD_Item_Index1   = 0;
+ 102   2              ucOSD_Item_Index2   = 0;
+ 103   2              b_rgb_VOLUME_STATUS = 0;
+ 104   2      #endif
+ 105   2      
+ 106   2              if (BEGIN_MODECHANGE > usTaskCnt)   
+ 107   2              {
+ 108   3                  usTaskCnt   = BEGIN_MODECHANGE;
+ 109   3              }
+ 110   2              break;
+ 111   2          case STATE_POWERDOWN :
+ 112   2              // In this code, we do nothing
+ 113   2              break;
+ 114   2          }
+ 115   1      }
+ 116          
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 3   
+
+ 117          void Run_Task(void)
+ 118          {
+ 119   1          // Task of each state :
+ 120   1          // STATE0. (BEGIN_SOURCECHANGE > usTaskCnt >= BEGIN_MODECHANGE) 
+ 121   1          //  - Show input source note text. Clear note text and go to State1 after 3sec or OSD window triggered
+             -.
+ 122   1          // STATE1. (BEGIN_MODECHANGE > usTaskCnt >= BEGIN_SHOWHINT)
+ 123   1          //  - Wait for input signal being stable for 2 sec. When input signal changed, 
+ 124   1          //    Input Mode Detector will set task state to 1 if current task state is 2. After 2sec, hint text
+ 125   1          //    will be shown if input isn't valid and no OSD window on screen and go to State2, else stay in ST
+             -ATE1.
+ 126   1          // STATE2. (BEGIN_SHOWHINT > usTaskCnt >= 0)
+ 127   1          //  - If OSD window is on screen, go to State1. Else if input isn't valid, show hint text for 5sec and
+             - 
+ 128   1          //    then turn off panel.
+ 129   1      
+ 130   1          if (usTaskCnt)      usTaskCnt   -= 1;
+ 131   1      
+ 132   1      
+ 133   1          if (BEGIN_MODECHANGE <= usTaskCnt)
+ 134   1          {
+ 135   2              // STATE0 : (BEGIN_SOURCECHANGE > usTaskCnt >= BEGIN_MODECHANGE)
+ 136   2      
+ 137   2              if (ucOSD_Page_Index)         
+ 138   2              {
+ 139   3                  usTaskCnt   = BEGIN_MODECHANGE;
+ 140   3              }
+ 141   2          }
+ 142   1          else if (BEGIN_SHOWHINT <= usTaskCnt)
+ 143   1          {
+ 144   2              // STATE1 : (BEGIN_MODECHANGE > usTaskCnt >= BEGIN_SHOWHINT)
+ 145   2      
+ 146   2              if (BEGIN_SHOWHINT == usTaskCnt)
+ 147   2              {
+ 148   3                  // Stay in STATE1 if input signal is valid or OSD window is on screen
+ 149   3                  if (ucOSD_Page_Index || (MODE_NOSUPPORT != ucMode_Curr && MODE_NOSIGNAL != ucMode_Curr && !bOv
+             -erSpec))
+ 150   3                  {
+ 151   4                      usTaskCnt   = BEGIN_SHOWHINT + OSD_TO_HINT_DELAY;
+ 152   4                  }
+ 153   3              }
+ 154   2          }
+ 155   1          else
+ 156   1          {
+ 157   2              // Task State 2 : (BEGIN_SHOWHINT > usTaskCnt >= 0)
+ 158   2      
+ 159   2              if (ucOSD_Page_Index)
+ 160   2              {
+ 161   3                  usTaskCnt   = BEGIN_SHOWHINT + OSD_TO_HINT_DELAY;    // Go back to Task State 1
+ 162   3              }
+ 163   2              else if (0 == usTaskCnt)
+ 164   2              {
+ 165   3                  usTaskCnt   = BEGIN_SHOWHINT - 1;   // Stay in Task State 2
+ 166   3              }
+ 167   2          }
+ 168   1      }
+ 169          
+ 170          
+ 171          void ISP_Check_Sum(void)
+ 172          {
+ 173   1      
+ 174   1      #if(ISPACK)
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 4   
+
+                  RTDSetByte(DDC_SET_SLAVE_F0,0x6a);
+              #endif
+ 177   1      
+ 178   1      
+ 179   1      }
+ 180          
+ 181          #if(USE_MCU_DDC)
+              void MCU_DDC_Process(void)
+              {
+                  unsigned char i,j;
+              
+                      MCU_Init();
+                      
+                  for(j=0;j<8;j++)
+                  {
+                       I2CRead(ADDR_EDID1, j*16, 16);
+                       for( i = 0; i < 16; i++)
+                              byMTV512_DDCRAMA[i+(j*16)] = Data[i];  // prepare DDC_RAM_1
+              
+                  } 
+                  Delay_Xms(250);
+                  Delay_Xms(250);
+                  Delay_Xms(250);
+                  Delay_Xms(250);
+                  Delay_Xms(250);
+              
+                  MCU_Init();
+                  Firmware_Init();
+                  EDID_Process();
+                  EnableDDC(); 
+              }
+              
+              #endif
+ 208          
+ 209          void Signal_Stable(unsigned char Notify)
+ 210          {
+ 211   1       // When input format changed, OSD will be cleared. OSD_Proc() can only runs when input signal is stable.
+ 212   1                  if (bStable)
+ 213   1                  {
+ 214   2                      OSD_Dispatcher(Notify);
+ 215   2      
+ 216   2                              
+ 217   2                      if (MODE_OSDFORCE == ucMode_Curr)   // OSD force to reset
+ 218   2                      {
+ 219   3                          Reset_Mode();
+ 220   3                          Set_Task(STATE_MODECHANGE);     // Notify Task State Machine
+ 221   3                      }
+ 222   2                      else
+ 223   2                      {
+ 224   3                          if (BEGIN_SHOWHINT <= usTaskCnt)
+ 225   3                          {
+ 226   4      
+ 227   4      
+ 228   4      //                        if (PANEL_OFF == bPANEL_PWR)
+ 229   4                              if( _OFF == bPanel_Status)
+ 230   4                              {
+ 231   5                                  Set_Panel(1);   // Turn on panel
+ 232   5                              }
+ 233   4                              
+ 234   4                                                  //RTDCodeW(OSD_Enable);
+ 235   4                                              //Set_Bright_Contrast();
+ 236   4                                                      if(((ucMode_Curr == MODE_NOSUPPORT)||(ucMode_Curr == MODE_NOSIGNAL)))
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 5   
+
+ 237   4                                   RTDSetBit(VDIS_CTRL_20, 0x5f, 0x20 | DHS_MASK);        // Normal display
+ 238   4                                                      else
+ 239   4                                                           RTDSetBit(VDIS_CTRL_20, 0x5f, DHS_MASK);        // Normal display
+ 240   4                              
+ 241   4      /*
+ 242   4      #if(BURNIN_MODE)
+ 243   4                              if(((ucMode_Curr == MODE_NOSUPPORT)||(ucMode_Curr == MODE_NOSIGNAL)))
+ 244   4                                   RTDSetBit(VDIS_CTRL_20, 0x5f, 0x20 | DHS_MASK);        // Normal display
+ 245   4                                                      else
+ 246   4                                                           RTDSetBit(VDIS_CTRL_20, 0x5f, DHS_MASK);        // Normal display
+ 247   4      #else
+ 248   4                               RTDSetBit(VDIS_CTRL_20, 0x5f, DHS_MASK);        // Normal display
+ 249   4      #endif
+ 250   4      */
+ 251   4      
+ 252   4      #if(MCU_TYPE == MCU_WINBOND)
+ 253   4                              bLIGHT_PWR  = LIGHT_ON;
+ 254   4      #else
+                                      MCU_WriteBacklightPower(LIGHT_ON);
+              #endif
+ 257   4      
+ 258   4                              //New Mode Auto
+ 259   4                              New_Mode_Auto();                //anson 05_0314
+ 260   4      
+ 261   4      #if(FIX_LAST_DHT)
+                                      if(bFrameSync)
+                                                              {
+                                                      //         RTDSetBit(FX_LST_LEN_H_5A,0xff,0x10); //Enable the Fixed DVTOTAL & Last Line Lenghth Fucntion
+                                                      //         RTDSetByte(FX_LST_LEN_H_5A,0x1b); //Enable the Fixed DVTOTAL & Last Line Lenghth Fucntion
+                                                              }
+                                             
+              #endif
+ 269   4      
+ 270   4      
+ 271   4      #if(AS_DV_TOTAL)
+ 272   4                              if(bFrameSync)
+ 273   4                                                      {
+ 274   5                                                            RTDSetByte(DV_TOTAL_STATUS_3D,0x00);  //Write once to clear status
+ 275   5                                    RTDSetBit(DV_BKGD_STA_31,0x7f,0x80);
+ 276   5                                                   }
+ 277   4      #endif
+ 278   4                          }
+ 279   3                          else if ((1 == usTaskCnt && MODE_NOSIGNAL == ucMode_Curr)||
+ 280   3                                      (1 == usTaskCnt && MODE_NOSUPPORT == ucMode_Curr))              //anson
+ 281   3      //                    else if (1 == usTaskCnt && MODE_NOSIGNAL == ucMode_Curr)
+ 282   3                          {
+ 283   4                              //if (PANEL_ON == MCU_ReadPanelPower())
+ 284   4                                                      if ( _ON == bPanel_Status)
+ 285   4                              {
+ 286   5                                  Set_Panel(0);   // Turn off panel
+ 287   5                                  SetMute(0);
+ 288   5                                  // Set RTD3001 to power-saving mode, and ADC to power-down mode.
+ 289   5                                  // Do not power down TMDS or it can't detect input signal.
+ 290   5                                  // DO NOT put VDC and TMDS into power-down mode.
+ 291   5                                  // and VDC can not detect input when powered down.
+ 292   5                                  PowerDown_ADC();
+ 293   5                                  //Device_Power(ADC_POWER,OFF);
+ 294   5                                      
+ 295   5                                  RTDSetByte(HOSTCTRL_02, 0x42);
+ 296   5                                  
+ 297   5                                  Delay_Xms(250);
+ 298   5                                  Delay_Xms(250);
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 6   
+
+ 299   5                                  Delay_Xms(250);
+ 300   5                                  Delay_Xms(250);
+ 301   5                                  Delay_Xms(250);
+ 302   5                              }
+ 303   4                          }
+ 304   3                      }
+ 305   2                  }
+ 306   1      }
+ 307          //////////////////////////////////////////////////////////////////////////////////////////////////////////
+             -////////////
+ 308          // Main Program
+ 309          //////////////////////////////////////////////////////////////////////////////////////////////////////////
+             -////////////
+ 310          
+ 311          extern void UART_Initialize(void);
+ 312          
+ 313          void main(void)
+ 314          {
+ 315   1          unsigned char idata     ucNotify;
+ 316   1              bRED_LED   = 1;                 //anson MTV512  1 = off 0 = on
+ 317   1              bGREEN_LED = 1;                 //          Tp2804              1 = on  0 = off
+ 318   1      #if(USE_MCU_DDC)
+                  MCU_DDC_Process();
+              #else
+ 321   1         Firmware_Init();
+ 322   1      #endif
+ 323   1      
+ 324   1      #if(RS232_DEBUG)
+                      UART_Initialize();
+              #endif
+ 327   1      
+ 328   1          
+ 329   1              Power_Status_Init();
+ 330   1          ISP_Check_Sum();
+ 331   1      
+ 332   1      #if(RS232_DEBUG)
+                      PutStringToScr("\nMain Loop..");
+              #endif
+ 335   1      
+ 336   1      
+ 337   1          Delay_Xms(250);
+ 338   1          Delay_Xms(250);
+ 339   1      //    Init_GUD();
+ 340   1      /*
+ 341   1              Delay_Xms(250);
+ 342   1          Delay_Xms(250);
+ 343   1          Delay_Xms(250);
+ 344   1      */    
+ 345   1      //    SetMute(1);//val = 1 open sound , val =0 close sound                      //anson
+ 346   1          RTDCodeW(OSD_Enable);
+ 347   1      
+ 348   1          // Program Main Loop
+ 349   1          while (1)
+ 350   1          {   
+ 351   2              rgb_LED_LIGHT_CONTROL();
+ 352   2              RTD_Test();
+ 353   2      
+ 354   2      #if (GETREGISTER)
+                      RTD_Get_Set();
+              #endif
+ 357   2      
+ 358   2              if(Frame_Sync_Detector())
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 7   
+
+ 359   2                         continue;
+ 360   2      
+ 361   2              // The code below will be executed every 20ms (bNotify_Timer0_Int is set to 1)
+ 362   2              // bNotify_Timer0_Int must and can only be cleared in the end of the iteration.
+ 363   2              if (bNotify_Timer0_Int)
+ 364   2              {   
+ 365   3      #if(RS232_DEBUG)
+                      if(fTest==1)
+                              {
+                              fTest=0;
+                              DebugModeLoop();
+                              }
+              #endif         
+ 372   3                  
+ 373   3                  // Key Translator 
+ 374   3                  ucNotify    = Key_Trans();
+ 375   3      
+ 376   3                  // Power Controller 
+ 377   3                  if(Power_Control(ucNotify))
+ 378   3                                     continue;
+ 379   3      
+ 380   3                                 
+ 381   3                  //Source Controller 
+ 382   3                  if(Source_Control())
+ 383   3                                    continue;
+ 384   3                      
+ 385   3      
+ 386   3                  // Input Mode Detector 
+ 387   3                  Input_Mode_Detector();
+ 388   3                      
+ 389   3      
+ 390   3      #if(BURNIN_MODE)
+ 391   3                      if(((ucMode_Curr == MODE_NOSUPPORT)||(ucMode_Curr == MODE_NOSIGNAL)) && bStable && ((stGUD3.TV_SETTING &
+             - 0x20) == 0x20)) //anson
+ 392   3                              BurnIn();
+ 393   3                      else if((MODE_NOSIGNAL != ucMode_Curr) && ((stGUD3.TV_SETTING & 0x20)==0x20 ))          //anson
+ 394   3                      {
+ 395   4                              stGUD3.TV_SETTING &= 0xDF ;
+ 396   4                              Save_GUD3();
+ 397   4                              return;
+ 398   4                      }
+ 399   3                      else  
+ 400   3      #endif
+ 401   3                            Run_Task();
+ 402   3      
+ 403   3                              Signal_Stable(ucNotify);
+ 404   3              
+ 405   3                  bNotify_Timer0_Int  = 0;
+ 406   3              }   
+ 407   2              // End of main loop
+ 408   2          }
+ 409   1      }
+ 410          
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 8   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION Com003A (BEGIN)
+0000         L?0059:
+0000 E4                CLR     A
+0001 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+0003 F6                MOV     @R0,A
+0004 7800        E     MOV     R0,#LOW ucOSD_Item_Index0
+0006 F6                MOV     @R0,A
+0007 7800        E     MOV     R0,#LOW ucOSD_Item_Index1
+0009 F6                MOV     @R0,A
+000A 7800        E     MOV     R0,#LOW ucOSD_Item_Index2
+000C F6                MOV     @R0,A
+000D C200        E     CLR     b_rgb_VOLUME_STATUS
+000F 22                RET     
+             ; FUNCTION Com003A (END)
+
+             ; FUNCTION BurnIn (BEGIN)
+                                           ; SOURCE LINE # 34
+                                           ; SOURCE LINE # 35
+                                           ; SOURCE LINE # 43
+0000 E500        R     MOV     A,ColorCounter
+0002 6003              JZ      ?C0001
+                                           ; SOURCE LINE # 44
+0004 1500        R     DEC     ColorCounter
+0006 22                RET     
+0007         ?C0001:
+                                           ; SOURCE LINE # 46
+                                           ; SOURCE LINE # 48
+0007 0500        R     INC     Color
+                                           ; SOURCE LINE # 49
+0009 E500        R     MOV     A,Color
+000B B41103            CJNE    A,#011H,?C0003
+                                           ; SOURCE LINE # 50
+000E 750001      R     MOV     Color,#01H
+0011         ?C0003:
+                                           ; SOURCE LINE # 53
+0011 E500        R     MOV     A,Color
+0013 C4                SWAP    A
+0014 54F0              ANL     A,#0F0H
+0016 440D              ORL     A,#0DH
+0018 F500        R     MOV     ucTemp,A
+                                           ; SOURCE LINE # 56
+001A 30003C      E     JNB     bPanel_Status,?C0004
+                                           ; SOURCE LINE # 57
+                                           ; SOURCE LINE # 58
+001D 120000      E     LCALL   Free_Background
+                                           ; SOURCE LINE # 59
+0020 7F04              MOV     R7,#04H
+0022 120000      E     LCALL   _Wait_For_Event
+                                           ; SOURCE LINE # 61
+0025 E4                CLR     A
+0026 FB                MOV     R3,A
+                                           ; SOURCE LINE # 62
+0027 120000      R     LCALL   L?0060
+002A 900000      R     MOV     DPTR,#BurnInColor
+002D 120000      R     LCALL   L?0061
+                                           ; SOURCE LINE # 64
+0030 7B40              MOV     R3,#040H
+                                           ; SOURCE LINE # 65
+0032 120000      R     LCALL   L?0060
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 9   
+
+0035 900000      R     MOV     DPTR,#BurnInColor+05H
+0038 120000      R     LCALL   L?0061
+                                           ; SOURCE LINE # 67
+003B 7B80              MOV     R3,#080H
+003D 7D3F              MOV     R5,#03FH
+003F 7F6D              MOV     R7,#06DH
+0041 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 68
+0044 E500        R     MOV     A,Color
+0046 900000      R     MOV     DPTR,#BurnInColor+0AH
+0049 93                MOVC    A,@A+DPTR
+004A FD                MOV     R5,A
+004B 7F6C              MOV     R7,#06CH
+004D 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 70
+0050 7B20              MOV     R3,#020H
+0052 7D5F              MOV     R5,#05FH
+0054 7F20              MOV     R7,#020H
+0056 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 73
+0059         ?C0004:
+                                           ; SOURCE LINE # 74
+0059 7500FF      R     MOV     ColorCounter,#0FFH
+                                           ; SOURCE LINE # 76
+                                           ; SOURCE LINE # 77
+005C         ?C0005:
+005C 22                RET     
+005D         L?0060:
+005D 7D3F              MOV     R5,#03FH
+005F 7F6D              MOV     R7,#06DH
+0061 120000      E     LCALL   _RTDSetBit
+0064 E500        R     MOV     A,Color
+0066 22                RET     
+0067         L?0061:
+0067 93                MOVC    A,@A+DPTR
+0068 FD                MOV     R5,A
+0069 7F6C              MOV     R7,#06CH
+006B 120000      E     LCALL   _RTDSetByte
+006E 22                RET     
+             ; FUNCTION BurnIn (END)
+
+             ; FUNCTION _Set_Task (BEGIN)
+                                           ; SOURCE LINE # 80
+;---- Variable 'state' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 81
+                                           ; SOURCE LINE # 82
+0000 EF                MOV     A,R7
+0001 14                DEC     A
+0002 6007              JZ      ?C0008
+0004 14                DEC     A
+0005 600F              JZ      ?C0009
+0007 2402              ADD     A,#02H
+0009 701E              JNZ     ?C0012
+                                           ; SOURCE LINE # 83
+                                           ; SOURCE LINE # 84
+                                           ; SOURCE LINE # 85
+000B         ?C0008:
+                                           ; SOURCE LINE # 87
+                                           ; SOURCE LINE # 88
+                                           ; SOURCE LINE # 89
+                                           ; SOURCE LINE # 90
+                                           ; SOURCE LINE # 91
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 10  
+
+000B 120000      R     LCALL   L?0059
+                                           ; SOURCE LINE # 93
+000E 7800        R     MOV     R0,#LOW usTaskCnt
+0010 7601              MOV     @R0,#01H
+0012 08                INC     R0
+0013 765E              MOV     @R0,#05EH
+                                           ; SOURCE LINE # 94
+0015 22                RET     
+                                           ; SOURCE LINE # 96
+0016         ?C0009:
+                                           ; SOURCE LINE # 99
+                                           ; SOURCE LINE # 100
+                                           ; SOURCE LINE # 101
+                                           ; SOURCE LINE # 102
+                                           ; SOURCE LINE # 103
+0016 120000      R     LCALL   L?0059
+                                           ; SOURCE LINE # 106
+0019 D3                SETB    C
+001A 74C8              MOV     A,#0C8H
+001C 7800        R     MOV     R0,#LOW usTaskCnt+01H
+001E 96                SUBB    A,@R0
+001F E4                CLR     A
+0020 18                DEC     R0
+0021 96                SUBB    A,@R0
+0022 4005              JC      ?C0012
+                                           ; SOURCE LINE # 107
+                                           ; SOURCE LINE # 108
+0024 7600              MOV     @R0,#00H
+0026 08                INC     R0
+0027 76C8              MOV     @R0,#0C8H
+                                           ; SOURCE LINE # 109
+                                           ; SOURCE LINE # 110
+                                           ; SOURCE LINE # 111
+                                           ; SOURCE LINE # 113
+                                           ; SOURCE LINE # 114
+                                           ; SOURCE LINE # 115
+0029         ?C0012:
+0029 22                RET     
+             ; FUNCTION _Set_Task (END)
+
+             ; FUNCTION Run_Task (BEGIN)
+                                           ; SOURCE LINE # 117
+                                           ; SOURCE LINE # 118
+                                           ; SOURCE LINE # 130
+0000 7800        R     MOV     R0,#LOW usTaskCnt+01H
+0002 E6                MOV     A,@R0
+0003 18                DEC     R0
+0004 46                ORL     A,@R0
+0005 6007              JZ      ?C0013
+0007 08                INC     R0
+0008 E6                MOV     A,@R0
+0009 16                DEC     @R0
+000A 18                DEC     R0
+000B 7001              JNZ     ?C0054
+000D 16                DEC     @R0
+000E         ?C0054:
+000E         ?C0013:
+                                           ; SOURCE LINE # 133
+000E 7800        R     MOV     R0,#LOW usTaskCnt
+0010 E6                MOV     A,@R0
+0011 FE                MOV     R6,A
+0012 08                INC     R0
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 11  
+
+0013 E6                MOV     A,@R0
+0014 FF                MOV     R7,A
+0015 D3                SETB    C
+0016 74C8              MOV     A,#0C8H
+0018 9F                SUBB    A,R7
+0019 E4                CLR     A
+001A 9E                SUBB    A,R6
+001B 500D              JNC     ?C0014
+                                           ; SOURCE LINE # 134
+                                           ; SOURCE LINE # 137
+001D 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+001F E6                MOV     A,@R0
+0020 6045              JZ      ?C0025
+                                           ; SOURCE LINE # 138
+                                           ; SOURCE LINE # 139
+0022 7800        R     MOV     R0,#LOW usTaskCnt
+0024 7600              MOV     @R0,#00H
+0026 08                INC     R0
+0027 76C8              MOV     @R0,#0C8H
+                                           ; SOURCE LINE # 140
+                                           ; SOURCE LINE # 141
+0029 22                RET     
+002A         ?C0014:
+                                           ; SOURCE LINE # 142
+002A D3                SETB    C
+002B 7464              MOV     A,#064H
+002D 9F                SUBB    A,R7
+002E E4                CLR     A
+002F 9E                SUBB    A,R6
+0030 501D              JNC     ?C0017
+                                           ; SOURCE LINE # 143
+                                           ; SOURCE LINE # 146
+0032 7800        R     MOV     R0,#LOW usTaskCnt+01H
+0034 E6                MOV     A,@R0
+0035 6464              XRL     A,#064H
+0037 18                DEC     R0
+0038 46                ORL     A,@R0
+0039 702C              JNZ     ?C0025
+                                           ; SOURCE LINE # 147
+                                           ; SOURCE LINE # 149
+003B 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+003D E6                MOV     A,@R0
+003E 7014              JNZ     ?C0055
+0040 7800        E     MOV     R0,#LOW ucMode_Curr
+0042 E6                MOV     A,@R0
+0043 FF                MOV     R7,A
+0044 F4                CPL     A
+0045 6020              JZ      ?C0025
+0047 EF                MOV     A,R7
+0048 601D              JZ      ?C0025
+004A 20001A      E     JB      bOverSpec,?C0025
+004D         ?C0020:
+                                           ; SOURCE LINE # 150
+                                           ; SOURCE LINE # 151
+                                           ; SOURCE LINE # 152
+                                           ; SOURCE LINE # 153
+                                           ; SOURCE LINE # 154
+004D 8005              SJMP    ?C0055
+004F         ?C0017:
+                                           ; SOURCE LINE # 156
+                                           ; SOURCE LINE # 159
+004F 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 12  
+
+0051 E6                MOV     A,@R0
+0052 6008              JZ      ?C0022
+                                           ; SOURCE LINE # 160
+                                           ; SOURCE LINE # 161
+0054         ?C0055:
+0054 7800        R     MOV     R0,#LOW usTaskCnt
+0056 7600              MOV     @R0,#00H
+0058 08                INC     R0
+0059 7669              MOV     @R0,#069H
+                                           ; SOURCE LINE # 162
+005B 22                RET     
+005C         ?C0022:
+                                           ; SOURCE LINE # 163
+005C 7800        R     MOV     R0,#LOW usTaskCnt+01H
+005E E6                MOV     A,@R0
+005F 18                DEC     R0
+0060 46                ORL     A,@R0
+0061 7004              JNZ     ?C0025
+                                           ; SOURCE LINE # 164
+                                           ; SOURCE LINE # 165
+0063 F6                MOV     @R0,A
+0064 08                INC     R0
+0065 7663              MOV     @R0,#063H
+                                           ; SOURCE LINE # 166
+                                           ; SOURCE LINE # 167
+                                           ; SOURCE LINE # 168
+0067         ?C0025:
+0067 22                RET     
+             ; FUNCTION Run_Task (END)
+
+             ; FUNCTION ISP_Check_Sum (BEGIN)
+                                           ; SOURCE LINE # 171
+                                           ; SOURCE LINE # 172
+                                           ; SOURCE LINE # 179
+0000 22                RET     
+             ; FUNCTION ISP_Check_Sum (END)
+
+             ; FUNCTION _Signal_Stable (BEGIN)
+                                           ; SOURCE LINE # 209
+;---- Variable 'Notify' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 210
+                                           ; SOURCE LINE # 212
+0000 200003      E     JB      bStable,$ + 6H
+0003 020000      R     LJMP    ?C0041
+                                           ; SOURCE LINE # 213
+                                           ; SOURCE LINE # 214
+0006 120000      E     LCALL   _OSD_Dispatcher
+                                           ; SOURCE LINE # 217
+0009 7800        E     MOV     R0,#LOW ucMode_Curr
+000B E6                MOV     A,@R0
+000C B4FE08            CJNE    A,#0FEH,?C0028
+                                           ; SOURCE LINE # 218
+                                           ; SOURCE LINE # 219
+000F 120000      E     LCALL   Reset_Mode
+                                           ; SOURCE LINE # 220
+0012 7F02              MOV     R7,#02H
+0014 020000      R     LJMP    _Set_Task
+                                           ; SOURCE LINE # 221
+0017         ?C0028:
+                                           ; SOURCE LINE # 223
+                                           ; SOURCE LINE # 224
+0017 D3                SETB    C
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 13  
+
+0018 7464              MOV     A,#064H
+001A 7800        R     MOV     R0,#LOW usTaskCnt+01H
+001C 96                SUBB    A,@R0
+001D E4                CLR     A
+001E 18                DEC     R0
+001F 96                SUBB    A,@R0
+0020 503A              JNC     ?C0030
+                                           ; SOURCE LINE # 225
+                                           ; SOURCE LINE # 229
+0022 200005      E     JB      bPanel_Status,?C0031
+                                           ; SOURCE LINE # 230
+                                           ; SOURCE LINE # 231
+0025 7F01              MOV     R7,#01H
+0027 120000      E     LCALL   _Set_Panel
+                                           ; SOURCE LINE # 232
+002A         ?C0031:
+                                           ; SOURCE LINE # 236
+002A 7800        E     MOV     R0,#LOW ucMode_Curr
+002C E6                MOV     A,@R0
+002D FF                MOV     R7,A
+002E F4                CPL     A
+002F 6003              JZ      ?C0033
+0031 EF                MOV     A,R7
+0032 7004              JNZ     ?C0032
+0034         ?C0033:
+                                           ; SOURCE LINE # 237
+0034 7B20              MOV     R3,#020H
+0036 8002              SJMP    ?C0056
+0038         ?C0032:
+                                           ; SOURCE LINE # 239
+0038 E4                CLR     A
+0039 FB                MOV     R3,A
+003A         ?C0056:
+003A 7D5F              MOV     R5,#05FH
+003C 7F20              MOV     R7,#020H
+003E 120000      E     LCALL   _RTDSetBit
+0041         ?C0034:
+                                           ; SOURCE LINE # 253
+0041 E4                CLR     A
+0042 900000      E     MOV     DPTR,#M512_Port51
+0045 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 259
+0046 120000      E     LCALL   New_Mode_Auto
+                                           ; SOURCE LINE # 272
+0049 30004F      E     JNB     bFrameSync,?C0041
+                                           ; SOURCE LINE # 273
+                                           ; SOURCE LINE # 274
+004C E4                CLR     A
+004D FD                MOV     R5,A
+004E 7F3D              MOV     R7,#03DH
+0050 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 275
+0053 7B80              MOV     R3,#080H
+0055 7D7F              MOV     R5,#07FH
+0057 7F31              MOV     R7,#031H
+0059 020000      E     LJMP    _RTDSetBit
+                                           ; SOURCE LINE # 276
+                                           ; SOURCE LINE # 278
+005C         ?C0030:
+                                           ; SOURCE LINE # 279
+005C 7800        R     MOV     R0,#LOW usTaskCnt+01H
+005E E6                MOV     A,@R0
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 14  
+
+005F 6401              XRL     A,#01H
+0061 18                DEC     R0
+0062 46                ORL     A,@R0
+0063 7005              JNZ     ?C0039
+0065 7800        E     MOV     R0,#LOW ucMode_Curr
+0067 E6                MOV     A,@R0
+0068 600F              JZ      ?C0038
+006A         ?C0039:
+006A 7800        R     MOV     R0,#LOW usTaskCnt+01H
+006C E6                MOV     A,@R0
+006D 6401              XRL     A,#01H
+006F 18                DEC     R0
+0070 46                ORL     A,@R0
+0071 7028              JNZ     ?C0041
+0073 7800        E     MOV     R0,#LOW ucMode_Curr
+0075 E6                MOV     A,@R0
+0076 F4                CPL     A
+0077 7022              JNZ     ?C0041
+0079         ?C0038:
+                                           ; SOURCE LINE # 282
+                                           ; SOURCE LINE # 284
+0079 30001F      E     JNB     bPanel_Status,?C0041
+                                           ; SOURCE LINE # 285
+                                           ; SOURCE LINE # 286
+007C E4                CLR     A
+007D FF                MOV     R7,A
+007E 120000      E     LCALL   _Set_Panel
+                                           ; SOURCE LINE # 287
+0081 C200        E     CLR     ?SetMute?BIT
+0083 120000      E     LCALL   SetMute
+                                           ; SOURCE LINE # 292
+0086 120000      E     LCALL   PowerDown_ADC
+                                           ; SOURCE LINE # 295
+0089 7D42              MOV     R5,#042H
+008B 7F02              MOV     R7,#02H
+008D 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 297
+                                           ; SOURCE LINE # 298
+0090 120000      R     LCALL   L?0057
+                                           ; SOURCE LINE # 299
+                                           ; SOURCE LINE # 300
+0093 120000      R     LCALL   L?0057
+                                           ; SOURCE LINE # 301
+0096 7FFA              MOV     R7,#0FAH
+0098 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 302
+                                           ; SOURCE LINE # 303
+                                           ; SOURCE LINE # 304
+                                           ; SOURCE LINE # 305
+                                           ; SOURCE LINE # 306
+009B         ?C0041:
+009B 22                RET     
+009C         L?0057:
+009C 7FFA              MOV     R7,#0FAH
+009E 120000      E     LCALL   _Delay_Xms
+00A1 7FFA              MOV     R7,#0FAH
+00A3 120000      E     LCALL   _Delay_Xms
+00A6 22                RET     
+             ; FUNCTION _Signal_Stable (END)
+
+             ; FUNCTION main (BEGIN)
+                                           ; SOURCE LINE # 313
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 15  
+
+                                           ; SOURCE LINE # 314
+                                           ; SOURCE LINE # 316
+0000 900000      E     MOV     DPTR,#M512_Port53
+0003 7401              MOV     A,#01H
+0005 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 317
+0006 900000      E     MOV     DPTR,#M512_Port52
+0009 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 321
+000A 120000      E     LCALL   Firmware_Init
+                                           ; SOURCE LINE # 329
+000D 120000      E     LCALL   Power_Status_Init
+                                           ; SOURCE LINE # 330
+0010 120000      R     LCALL   ISP_Check_Sum
+                                           ; SOURCE LINE # 337
+0013 7FFA              MOV     R7,#0FAH
+0015 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 338
+0018 7FFA              MOV     R7,#0FAH
+001A 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 346
+001D 7E00        R     MOV     R6,#HIGH OSD_Enable
+001F 7F00        R     MOV     R7,#LOW OSD_Enable
+0021 120000      E     LCALL   _RTDCodeW
+0024         ?C0042:
+                                           ; SOURCE LINE # 349
+                                           ; SOURCE LINE # 350
+                                           ; SOURCE LINE # 351
+0024 120000      E     LCALL   rgb_LED_LIGHT_CONTROL
+                                           ; SOURCE LINE # 352
+0027 120000      E     LCALL   RTD_Test
+                                           ; SOURCE LINE # 358
+002A 120000      E     LCALL   Frame_Sync_Detector
+002D 40F5              JC      ?C0042
+                                           ; SOURCE LINE # 359
+002F         ?C0044:
+                                           ; SOURCE LINE # 363
+002F 3000F2      E     JNB     bNotify_Timer0_Int,?C0042
+                                           ; SOURCE LINE # 364
+                                           ; SOURCE LINE # 374
+0032 120000      E     LCALL   Key_Trans
+0035 7800        R     MOV     R0,#LOW ucNotify
+0037 EF                MOV     A,R7
+0038 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 377
+0039 120000      E     LCALL   _Power_Control
+003C 40E6              JC      ?C0042
+                                           ; SOURCE LINE # 378
+003E         ?C0046:
+                                           ; SOURCE LINE # 382
+003E 120000      E     LCALL   Source_Control
+0041 40E1              JC      ?C0042
+                                           ; SOURCE LINE # 383
+0043         ?C0047:
+                                           ; SOURCE LINE # 387
+0043 120000      E     LCALL   Input_Mode_Detector
+                                           ; SOURCE LINE # 391
+0046 7800        E     MOV     R0,#LOW ucMode_Curr
+0048 E6                MOV     A,@R0
+0049 FF                MOV     R7,A
+004A F4                CPL     A
+004B 6003              JZ      ?C0049
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 16  
+
+004D EF                MOV     A,R7
+004E 700D              JNZ     ?C0048
+0050         ?C0049:
+0050 30000A      E     JNB     bStable,?C0048
+0053 E500        E     MOV     A,stGUD3+03H
+0055 30E505            JNB     ACC.5,?C0048
+                                           ; SOURCE LINE # 392
+0058 120000      R     LCALL   BurnIn
+005B 8013              SJMP    ?C0050
+005D         ?C0048:
+                                           ; SOURCE LINE # 393
+005D 7800        E     MOV     R0,#LOW ucMode_Curr
+005F E6                MOV     A,@R0
+0060 600B              JZ      ?C0051
+0062 E500        E     MOV     A,stGUD3+03H
+0064 30E506            JNB     ACC.5,?C0051
+                                           ; SOURCE LINE # 394
+                                           ; SOURCE LINE # 395
+0067 5300DF      E     ANL     stGUD3+03H,#0DFH
+                                           ; SOURCE LINE # 396
+006A 020000      E     LJMP    Save_GUD3
+                                           ; SOURCE LINE # 398
+006D         ?C0051:
+                                           ; SOURCE LINE # 401
+006D 120000      R     LCALL   Run_Task
+0070         ?C0050:
+                                           ; SOURCE LINE # 403
+0070 7800        R     MOV     R0,#LOW ucNotify
+0072 E6                MOV     A,@R0
+0073 FF                MOV     R7,A
+0074 120000      R     LCALL   _Signal_Stable
+                                           ; SOURCE LINE # 405
+0077 C200        E     CLR     bNotify_Timer0_Int
+                                           ; SOURCE LINE # 406
+                                           ; SOURCE LINE # 408
+0079 80A9              SJMP    ?C0042
+             ; FUNCTION main (END)
+
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 17  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+NoSupport_FRE. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FCAH  1
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+SV_50_0. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    077BH  1
+NoSupport_ITA. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FCBH  1
+NoSupport_GER. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FC9H  1
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+SV_50_1. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    077CH  1
+SV_60_0. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0776H  1
+_Signal_Stable . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  Notify . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+NoCable_CHI_S. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2C03H  1
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+SV_50_2. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    077DH  1
+SV_60_1. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0777H  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+b_rgb_VOLUME_STATUS. . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+OSD_AUTO . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3176H  52
+NoCable_CHI_T. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2C02H  1
+bNotify_Timer0_Int . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+SV_50_3. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    077EH  1
+SV_60_2. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0778H  1
+_Set_Task. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  state. . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+SV_50_4. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    077FH  1
+SV_60_3. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0779H  1
+P3 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B0H  1
+_LPFN_INTX_WRITE_. . . . . . . . . . .  TYPEDEF  -----  PTR      -----  2
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 18  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+PageADC_ENG. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    60D4H  127
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+SV_60_4. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    077AH  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+Page8_Title_CHI_S. . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F94H  1
+NoSupport_SPA. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FCCH  1
+Save_GUD3. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Page9_Title_CHI_S. . . . . . . . . . .  PUBLIC   CODE   ARRAY    6095H  1
+Page8_Title_CHI_T. . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F93H  1
+OSD_Window_Setting . . . . . . . . . .  PUBLIC   CODE   ARRAY    32CEH  76
+_PORTX_PROGRAMMING_. . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  lpctszPORTXname. . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnPORTXread. . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+  lpfnPORTXwrite . . . . . . . . . . .  MEMBER   -----  PTR      0004H  2
+Page9_Title_CHI_T. . . . . . . . . . .  PUBLIC   CODE   ARRAY    6094H  1
+strTabAuto_Atb . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    329CH  16
+NoSignal_CHI_S . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2E87H  107
+NoSignal_CHI_T . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2E1CH  107
+RTD_VIDEO_50 . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0764H  1
+RTD_VIDEO_60 . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0763H  1
+DIAGNOSTIC_TYPE. . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  lpctszType . . . . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnType . . . . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+Frame_Sync_Detector. . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+ADC_SD_SET . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    09F4H  30
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+New_Mode_Auto. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bOverSpec. . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+FactoryPageAtbFont . . . . . . . . . .  PUBLIC   CODE   ARRAY    61CDH  323
+_RTDSetByte. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+OSD_Enable . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    32B0H  23
+_LPFN_INTX_READ_ . . . . . . . . . . .  TYPEDEF  -----  PTR      -----  2
+Key_Trans. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+VGA_INI_CS . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A2EH  16
+PageVDC_ENG. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6177H  86
+Page1_CHI_S. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3FCDH  151
+V_NOWORK . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0765H  1
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+Page2_CHI_S. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4655H  147
+Page1_CHI_T. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3F36H  151
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+_RTDSetBit . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Page3_CHI_S. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4B0AH  136
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 19  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+Page2_CHI_T. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    45C2H  147
+Input_Mode_Detector. . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Page4_CHI_S. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    521EH  207
+Page3_CHI_T. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4A82H  136
+Page5_CHI_S. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5883H  142
+Page4_CHI_T. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    514FH  207
+OSD_Auto_FRA . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    31CDH  36
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+Page6_CHI_S. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A2AH  1
+Page5_CHI_T. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    57F5H  142
+OSD_Auto_ENG . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    31AAH  35
+Page7_CHI_S. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5D64H  85
+Page6_CHI_T. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A29H  1
+OSD_Auto_JAP . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    327EH  30
+Page7_CHI_T. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5D0FH  85
+_RTDCodeW. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+YUV_DETECT . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0768H  1
+OSD_Auto_ITA . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3238H  40
+OSD_Auto_DEU . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    31F1H  36
+ERASE_FLASHMEM . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  lpctszCmdType. . . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnCmdType. . . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+OSD_RGB. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FD0H  90
+VGA_SET_CS . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A8CH  14
+_LPFNEVENTFUNC_. . . . . . . . . . . .  TYPEDEF  -----  PTR      -----  2
+Font_add . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2AC7H  130
+CAP_WIN. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0788H  620
+TV_SOURCE_SEL. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0785H  1
+_LPFNEXCEPTION_. . . . . . . . . . . .  TYPEDEF  -----  PTR      -----  2
+DVI_INI. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A4EH  24
+RTD_IO_INI . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    01C3H  22
+usTaskCnt. . . . . . . . . . . . . . .  PUBLIC   IDATA  U_INT    0000H  2
+main . . . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  ucNotify . . . . . . . . . . . . . .  AUTO     IDATA  U_CHAR   0000H  1
+VGA_INI_SS . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A22H  12
+OSD_Clean_All. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6310H  37
+Row_Info . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2B49H  19
+Page1_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3A4CH  334
+NoSupport_CHI_S. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FCEH  1
+FactRow_Info . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2B5CH  20
+Page2_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4120H  347
+NoSupport_CHI_T. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FCDH  1
+OSD_PAGE_All_TABLE . . . . . . . . . .  PUBLIC   CODE   ARRAY    6428H  16
+Page3_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    479FH  253
+OSD_DVI. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    302AH  92
+Page4_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4C21H  337
+OSD_Auto_ESP . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3215H  35
+Font_East_C. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    13EAH  1781
+Run_Task . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_INTX_PROGRAMMING_ . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  lpctszINTKeyword . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnINTXread . . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+  lpfnINTXwrite. . . . . . . . . . . .  MEMBER   -----  PTR      0004H  2
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 20  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  wMask. . . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0006H  2
+Page5_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    53BFH  313
+Palette_Close. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0AB7H  5
+V_DISABLE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0769H  1
+Page6_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    59AEH  118
+Page7_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A2CH  260
+OSD_PAGE_TABLE . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6398H  144
+Page8_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5E02H  395
+Page9_Atb. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F96H  249
+OSD_Version. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2B70H  34
+TV_SCAN_GAIN . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0786H  1
+Font_East_J. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0DFFH  1515
+VGA_SET_SS . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A7AH  18
+VIDEO_ALL. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0781H  1
+AV_DETECT. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0766H  1
+SCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0098H  1
+Page_All_ENG . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    338BH  213
+usOSD_Timer. . . . . . . . . . . . . .  PUBLIC   IDATA  U_INT    0002H  2
+_OSD_Dispatcher. . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+TCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0088H  1
+AutoOK . . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6358H  16
+Page_All_JAP . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    397BH  209
+_Power_Control . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Page_All_FRE . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3531H  224
+Firmware_Init. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Page_All_ITA . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3611H  217
+Page_All_GER . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3460H  209
+VIDEO_INI. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A66H  20
+Source_Control . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bReload. . . . . . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+TV_DISP_GAIN . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0787H  1
+Version_Panel. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6335H  19
+ucOSD_Item_Index0. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+bPanel_Status. . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+VIDEO_50 . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0784H  1
+Page_All_SPA . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    36EAH  215
+rgb_OSD_VOLUME . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3086H  65
+ucOSD_Item_Index1. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+VIDEO_60 . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0783H  1
+ucOSD_Item_Index2. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+PageADC_Atb. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    60A6H  46
+bStable. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+ucID_Code. . . . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0004H  1
+ISP_Check_Sum. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+SV_DETECT. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0767H  1
+OSD_HINT_TABLE . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6368H  48
+VGA_Mode . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0227H  720
+PORTX_PROGRAMMING. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  lpctszPORTXname. . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnPORTXread. . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+  lpfnPORTXwrite . . . . . . . . . . .  MEMBER   -----  PTR      0004H  2
+strTabVOLUME_Atb . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3166H  16
+Palette_Open . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0AB2H  5
+DCLK_OFFSET. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A12H  16
+__COMMAND_KEY__. . . . . . . . . . . .  * TAG *  -----  STRUCT   -----  10
+  lpctszCommand. . . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  MaxParams. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 21  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  MinParams. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  lpctszComment. . . . . . . . . . . .  MEMBER   -----  PTR      0004H  2
+  lpfnCmdFunc. . . . . . . . . . . . .  MEMBER   -----  PTR      0006H  2
+  lpfnGenExcp. . . . . . . . . . . . .  MEMBER   -----  PTR      0008H  2
+SetMute. . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+COMMAND_KEY. . . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  10
+  lpctszCommand. . . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  MaxParams. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  MinParams. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  lpctszComment. . . . . . . . . . . .  MEMBER   -----  PTR      0004H  2
+  lpfnCmdFunc. . . . . . . . . . . . .  MEMBER   -----  PTR      0006H  2
+  lpfnGenExcp. . . . . . . . . . . . .  MEMBER   -----  PTR      0008H  2
+OSD_YUV. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    32AEH  1
+OSD_Auto_CHI_T . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3260H  30
+_DIAGNOSTIC_TYPE_. . . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  lpctszType . . . . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnType . . . . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+OSD_Reset. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    32C7H  7
+Font_Global. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2213H  2228
+LVDS_POWERUP . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0AA8H  5
+BurnIn . . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  Color. . . . . . . . . . . . . . . .  STATIC   DATA   U_CHAR   0000H  1
+  ColorCounter . . . . . . . . . . . .  STATIC   DATA   U_CHAR   0001H  1
+  ucTemp . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0000H  1
+rgb_LED_LIGHT_CONTROL. . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+NoCable_ENG. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2B92H  108
+NoCable_JAP. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2C04H  1
+BurnInColor. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0DF0H  15
+PowerDown_ADC. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+M512_Port51. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+M512_Port52. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+PageVDC_Atb. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6153H  36
+NoCable_FRE. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2BFFH  1
+M512_Port53. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+OSD_PWUP_INI . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    021BH  12
+NoCable_ITA. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2C00H  1
+NoCable_GER. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2BFEH  1
+Page8_Title_ENG. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F8EH  1
+Page9_Title_ENG. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    608FH  1
+Page8_Title_JAP. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F95H  1
+Page9_Title_JAP. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6096H  1
+NoSignal_FRA . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2C72H  109
+FreeV. . . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    01D9H  66
+RTD_PWUP_INI . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0000H  170
+Page8_Title_FRE. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F90H  1
+NoSignal_ENG . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2C05H  109
+Page9_Title_FRE. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6091H  1
+Page8_Title_ITA. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F91H  1
+Page8_Title_GER. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F8FH  1
+NoSignal_JAP . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2EF2H  111
+Page9_Title_ITA. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6092H  1
+Page9_Title_GER. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6090H  1
+OSD_VOLUME_ENG . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    30C7H  53
+NoCable_SPA. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2C01H  1
+_LPFN_PORTX_WRITE_ . . . . . . . . . .  TYPEDEF  -----  PTR      -----  2
+OSD_AV . . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    32ACH  1
+OSD_VOLUME_JAP . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3131H  53
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 22  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+VIDEO_YUV. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0782H  1
+Mode_Preset. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    04F7H  620
+_LPFN_DIAGNOSTIC_TYPE_ . . . . . . . .  TYPEDEF  -----  PTR      -----  2
+NoSignal_ITA . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2DB8H  100
+NoSignal_DEU . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2CDFH  106
+ucMode_Curr. . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+V_ENABLE . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    076AH  1
+_Set_Panel . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+RTD_DDC_TABLE. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    00AAH  281
+_ERASE_FLASHMEM_ . . . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  lpctszCmdType. . . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnCmdType. . . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+Page8_Title_SPA. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F92H  1
+Page_All_CHI_S . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    389EH  221
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+AV_SECAM . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0775H  1
+Page9_Title_SPA. . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6093H  1
+Page_All_CHI_T . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    37C1H  221
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 23  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+LVDS_POWERDOWN . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0AADH  5
+_Wait_For_Event. . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+T2CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+NoSignal_ESP . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2D49H  111
+Palette_7. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0ABCH  52
+VGA_INI_SOG. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A3EH  16
+Page1_ENG. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3B9AH  181
+OSD_VOLUME_ESP . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    30FCH  53
+_Delay_Xms . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Free_Background. . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Page2_ENG. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    427BH  162
+Page1_JAP. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4064H  188
+AV_50_0. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0770H  1
+INTX_PROGRAMMING . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  lpctszINTKeyword . . . . . . . . . .  MEMBER   -----  PTR      0000H  2
+  lpfnINTXread . . . . . . . . . . . .  MEMBER   -----  PTR      0002H  2
+  lpfnINTXwrite. . . . . . . . . . . .  MEMBER   -----  PTR      0004H  2
+  wMask. . . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0006H  2
+Page3_ENG. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    489CH  97
+Page2_JAP. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    46E8H  183
+Reset_Mode . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+RTD_Test . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+AV_50_1. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0771H  1
+AV_60_0. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    076BH  1
+_LPFN_PORTX_READ_. . . . . . . . . . .  TYPEDEF  -----  PTR      -----  2
+_LPFN_ERASE_FLASHMEM_CMDTYPE_. . . . .  TYPEDEF  -----  PTR      -----  2
+Page4_ENG. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4D72H  186
+Page3_JAP. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4B92H  143
+Page1_FRE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3D08H  187
+AV_50_2. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0772H  1
+AV_60_1. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    076CH  1
+Power_Status_Init. . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Page5_ENG. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    54F8H  158
+Page4_JAP. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    52EDH  210
+Page2_FRE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    43BBH  174
+Page1_ITA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3DC3H  190
+Page1_GER. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3C4FH  185
+AV_50_3. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0773H  1
+AV_60_2. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    076DH  1
+bFrameSync . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+Page6_ENG. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A24H  1
+Page5_JAP. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5911H  157
+Page3_FRE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    495AH  103
+Page2_ITA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4469H  180
+Page2_GER. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    431DH  158
+OSD_SV . . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    32ADH  1
+AV_50_4. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0774H  1
+AV_60_3. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    076EH  1
+RecallOK . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6348H  16
+Page7_ENG. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5B30H  114
+Page6_JAP. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A2BH  1
+Page4_FRE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4EEDH  203
+C51 COMPILER V7.06   LCD_MAIN                                                              11/21/2005 13:47:28 PAGE 24  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+Page3_ITA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    49C1H  100
+Page3_GER. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    48FDH  93
+OSD_TV . . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    32AFH  1
+AV_60_4. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    076FH  1
+Page7_JAP. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5DB9H  73
+Page5_FRE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    562DH  155
+Page4_ITA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4FB8H  206
+Page4_GER. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4E2CH  193
+Page_All_Atb . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    331AH  113
+Page6_FRE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A26H  1
+Page5_ITA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    56C8H  152
+Page5_GER. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5596H  151
+Page7_FRE. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5BF7H  95
+Page6_ITA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A27H  1
+Page6_GER. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A25H  1
+SV_SECAM . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0780H  1
+Page7_ITA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5C56H  94
+Page7_GER. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5BA2H  85
+Page1_SPA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    3E81H  181
+GAMMA_1. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0AF0H  256
+Page2_SPA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    451DH  165
+GAMMA_2. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0BF0H  256
+VGA_SET_SOG. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0A9AH  14
+Page8_Content. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5F8DH  1
+Page3_SPA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    4A25H  93
+GAMMA_3. . . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0CF0H  256
+Page9_Content. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    6097H  15
+Page4_SPA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5086H  201
+Font_Icons . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    1ADFH  1844
+Page5_SPA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5760H  149
+Page6_SPA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5A28H  1
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+Page7_SPA. . . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    5CB4H  91
+NoSupport_ENG. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2F61H  104
+ucOSD_Page_Index . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+NoSupport_JAP. . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    2FCFH  1
+stGUD3 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  5
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    564    ----
+   CONSTANT SIZE    =  25656    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2       1
+   IDATA SIZE       =      5       1
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

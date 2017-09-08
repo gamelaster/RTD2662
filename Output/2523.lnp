@@ -1,0 +1,20 @@
+".\Output\Uart.obj",
+".\Output\Initial.obj",
+".\Output\Frame_Sync.obj",
+".\Output\Lcd_auto.obj",
+".\Output\Lcd_coef.obj",
+".\Output\Lcd_func.obj",
+".\Output\Lcd_main.obj",
+".\Output\Lcd_msg.obj",
+".\Output\Lcd_osd.obj",
+".\Output\Mode_Detect.obj",
+".\Output\MTV512.obj",
+".\Output\Power_Ctrl.obj",
+".\Output\Src_Ctrl.obj",
+".\Output\Timer.obj",
+".\Output\Access.obj",
+".\Output\Ddc.obj",
+".\Output\rgb_echo.obj",
+".\Lib\Ksv.lib" 
+TO ".\Output\2523" 
+PRINT(".\Output\2523.m51") RAMSIZE(256) 

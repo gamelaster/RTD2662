@@ -1,0 +1,721 @@
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE SRC_CTRL
+OBJECT MODULE PLACED IN .\Output\Src_Ctrl.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Src_Ctrl.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PR
+                    -INT(.\Output\Src_Ctrl.lst) PREPRINT(.\Output\Src_Ctrl.i) OBJECT(.\Output\Src_Ctrl.obj)
+
+stmt level    source
+
+   1          #define __SOURCECTRL__
+   2          
+   3          #include "Header\Lcd_main.h"
+   4          #include "Header\Lcd_func.h"
+   5          #include "Header\Mode_Detect.h"
+   6          #include "Header\Initial.h"
+   7          #include "Header\Src_Ctrl.h"
+   8          #include "Header\Access.h"
+   9          
+  10          bit Source_Control(void)
+  11          {
+  12   1                  if ((stGUD1.INPUT_SOURCE & 0x07) != ucInputSrc)
+  13   1                  {
+  14   2                      stGUD1.INPUT_SOURCE = (stGUD1.INPUT_SOURCE & 0xf8) | (ucInputSrc & 0x07);
+  15   2                      Save_GUD1();
+  16   2                      
+  17   2                      ucModeCnt   = MODE_DETECT_FREQ;     // Reset Input Mode Detector
+  18   2      
+  19   2                      Reset_Mode();
+  20   2      
+  21   2      
+  22   2                      Init_Input_Source();
+  23   2                      Measure_Mode();
+  24   2                      
+  25   2                      Set_Task(STATE_SOURCECHANGE);       // Notify Task State Machine
+  26   2      
+  27   2                      bNotify_Timer0_Int  = 0;
+  28   2      
+  29   2                      //continue;   // leave current iteration.
+  30   2                                      return _TRUE;
+  31   2                  }
+  32   1                              return _FALSE;
+  33   1      }
+  34          
+  35          void Change_Source(unsigned char source)
+  36          {
+  37   1          if (SOURCE_MAX < source)    return;
+  38   1      
+  39   1          if (SOURCE_VGA == source)
+  40   1          {
+  41   2              ucInputSrc  = SOURCE_VGA;
+  42   2          }
+  43   1       else if (SOURCE_DVI == source)
+  44   1          {
+  45   2      #if (TMDS_ENABLE) 
+  46   2              ucInputSrc  = SOURCE_DVI;
+  47   2      #else
+                      ucInputSrc  = SOURCE_VGA;
+              #endif
+  50   2          }
+  51   1          else if (SOURCE_AV == source || SOURCE_SV == source)
+  52   1          {
+  53   2      #if (VIDEO_CHIP != VDC_NONE)
+                      ucInputSrc  = source;   // SOURCE_AV or SOURCE_SV      
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 2   
+
+              #else
+  56   2              ucInputSrc  = SOURCE_VGA;
+  57   2      #endif
+  58   2          }
+  59   1          else if (SOURCE_YUV == source)
+  60   1          {
+  61   2      #if (VIDEO_CHIP == VDC_SAA7118)
+                      ucInputSrc  = source;   // SOURCE_YUV
+              #else
+  64   2              ucInputSrc  = SOURCE_VGA;
+  65   2      #endif
+  66   2          }
+  67   1          else
+  68   1          {
+  69   2      #if (TV_CHIP != TV_NONE)
+                      ucInputSrc = source;    // SOURCE_TV
+              #else
+  72   2              ucInputSrc = SOURCE_VGA;
+  73   2      #endif
+  74   2          }
+  75   1      }
+  76          
+  77          #if(SOURCE_AUTO_SCAN)
+  78          void Source_Auto_Scan(void)
+  79          {
+  80   1      
+  81   1                   Data[0] = stGUD1.INPUT_SOURCE & 0x07; 
+  82   1                   if((Data[0] == MASTER_SOURCE) || (Data[0] == SLAVE_SOURCE) || (Data[0] == THIRD_SOURCE)) 
+  83   1                                   bSourceScanEnable = !bSourceScanEnable;
+  84   1      
+  85   1                                      if(!bSourceScanEnable)
+  86   1                           Mode_Detector();
+  87   1      
+  88   1                                      if(bStable && bSourceScanEnable)
+  89   1                      {
+  90   2                                          
+  91   2                                              Measure_Source(ucNext_Source);
+  92   2      
+  93   2                                              if((ucNext_Source == SOURCE_VGA) || (ucNext_Source == SOURCE_DVI))
+  94   2                                              {
+  95   3                                                      RTDRead(SYNC_POR_4C, 0x09, Y_INC);
+  96   3                              
+  97   3                                                      if(Data[0] & 0x02)
+  98   3                              {
+  99   4                                 RTDSetByte(SYNC_POR_4C,0x20);
+ 100   4                                 Data[2] = 0x80;
+ 101   4                                 Data[4] = 0x80;
+ 102   4                              }
+ 103   3      
+ 104   3                                                      if(((Data[4] & 0x80) != 0x80) && ((Data[2] & 0x80) != 0x80))
+ 105   3                                                      {
+ 106   4                                                              Data[5] = Data[3];
+ 107   4                                                              Data[4] = Data[4] & 0x87;
+ 108   4                                                              Data[3] = Data[1];
+ 109   4                                                              Data[2] = Data[2] & 0x8f;                                                       
+ 110   4                                                              
+ 111   4                                                              if( (((unsigned int*)Data)[1] < 1024)  && (((unsigned int*)Data)[1] > 260) &&
+ 112   4                                                                      (((unsigned int*)Data)[2] < 1260)  && (((unsigned int*)Data)[2] > 430))
+ 113   4                                                              {
+ 114   5                                                                      if(ucSource_Times < VGA_SEARCH_TIMES)
+ 115   5                                                                              ucSource_Times += 1;
+ 116   5                                                                      else
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 3   
+
+ 117   5                                                                      {
+ 118   6                                                                              ucInputSrc = ucNext_Source;
+ 119   6                                                                              ucNext_Source = MASTER_SOURCE; 
+ 120   6                                                                              ucSource_Times = 0;
+ 121   6                                                                      }                                                                       
+ 122   5                                                              }
+ 123   4                                                              else
+ 124   4                                                              {
+ 125   5                                                                      ucSource_Times = 0;
+ 126   5                                                              
+ 127   5                                       ucNext_Source = (ucNext_Source == MASTER_SOURCE) ? SLAVE_SOURCE : 
+ 128   5                                                                      (ucNext_Source == SLAVE_SOURCE ) ? THIRD_SOURCE : MASTER_SOURCE;
+ 129   5                                                                                                                                                                                                      
+ 130   5                                                              }
+ 131   4                                                              
+ 132   4                                                      }
+ 133   3                                                      else
+ 134   3                                                      {
+ 135   4                                                              ucSource_Times = 0;
+ 136   4                                                  ucNext_Source = (ucNext_Source == MASTER_SOURCE) ? SLAVE_SOURCE : 
+ 137   4                                                                      (ucNext_Source == SLAVE_SOURCE ) ? THIRD_SOURCE : MASTER_SOURCE;
+ 138   4                                                              
+ 139   4                                                      }
+ 140   3                                              }//end of if((ucNext_Source == SOURCE_VGA) || (ucNext_Source == SOURCE_DVI))
+ 141   2                                              else
+ 142   2                                              {
+ 143   3                                                      I2CRead(ADDR_VIDEO, 0x1f, 0x01);
+ 144   3                                              
+ 145   3                                                      if (0 == (Data[0] & 0x40))
+ 146   3                                                      {
+ 147   4                                                              if(ucSource_Times < VGA_SEARCH_TIMES)
+ 148   4                                                                              ucSource_Times += 1;
+ 149   4                                                              else
+ 150   4                                                              {
+ 151   5                                                                      ucInputSrc = ucNext_Source;
+ 152   5                                                                      ucNext_Source = MASTER_SOURCE; 
+ 153   5                                                                      ucSource_Times = 0;
+ 154   5                                                              }               
+ 155   4                                                      }
+ 156   3                                                      else
+ 157   3                                                      {
+ 158   4                                                              ucSource_Times = 0;
+ 159   4                                
+ 160   4                                   ucNext_Source = (ucNext_Source == MASTER_SOURCE) ? SLAVE_SOURCE : 
+ 161   4                                                                      (ucNext_Source == SLAVE_SOURCE ) ? THIRD_SOURCE : MASTER_SOURCE;
+ 162   4                                                      }
+ 163   3                                              }
+ 164   2                                              
+ 165   2                                              RTDSetByte(SYNC_CTRL_4A,0x00);
+ 166   2                                              //RTDSetByte(SYNC_POR_4C, (stGUD1.INPUT_SOURCE & 0x07) == SOURCE_VGA ? 0x32 : 0x02);
+ 167   2                                              
+ 168   2                                              if(((stGUD1.INPUT_SOURCE & 0x07) == SOURCE_VGA) && (SYNC_SS != ucSync_Type))
+ 169   2                             RTDSetByte(SYNC_POR_4C,0x32);
+ 170   2                          else
+ 171   2                             RTDSetByte(SYNC_POR_4C,0x02);
+ 172   2                          
+ 173   2                                      }//end of if(bStable)
+ 174   1      }
+ 175          #endif
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 4   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION Com0035 (BEGIN)
+0000         L?0054:
+0000         L?0055:
+0000 E4                CLR     A
+0001 7800        R     MOV     R0,#LOW ucSource_Times
+0003 F6                MOV     @R0,A
+0004 08                INC     R0
+0005 E6                MOV     A,@R0
+0006 FF                MOV     R7,A
+0007 22                RET     
+             ; FUNCTION Com0035 (END)
+
+             ; FUNCTION Source_Control (BEGIN)
+                                           ; SOURCE LINE # 10
+                                           ; SOURCE LINE # 11
+                                           ; SOURCE LINE # 12
+0000 E500        E     MOV     A,stGUD1+01H
+0002 5407              ANL     A,#07H
+0004 FF                MOV     R7,A
+0005 7800        E     MOV     R0,#LOW ucInputSrc
+0007 E6                MOV     A,@R0
+0008 FE                MOV     R6,A
+0009 6F                XRL     A,R7
+000A 6024              JZ      ?C0001
+                                           ; SOURCE LINE # 13
+                                           ; SOURCE LINE # 14
+000C EE                MOV     A,R6
+000D 5407              ANL     A,#07H
+000F FF                MOV     R7,A
+0010 E500        E     MOV     A,stGUD1+01H
+0012 54F8              ANL     A,#0F8H
+0014 4F                ORL     A,R7
+0015 F500        E     MOV     stGUD1+01H,A
+                                           ; SOURCE LINE # 15
+0017 120000      E     LCALL   Save_GUD1
+                                           ; SOURCE LINE # 17
+001A 7800        E     MOV     R0,#LOW ucModeCnt
+001C 7602              MOV     @R0,#02H
+                                           ; SOURCE LINE # 19
+001E 120000      E     LCALL   Reset_Mode
+                                           ; SOURCE LINE # 22
+0021 120000      E     LCALL   Init_Input_Source
+                                           ; SOURCE LINE # 23
+0024 120000      E     LCALL   Measure_Mode
+                                           ; SOURCE LINE # 25
+0027 7F01              MOV     R7,#01H
+0029 120000      E     LCALL   _Set_Task
+                                           ; SOURCE LINE # 27
+002C C200        E     CLR     bNotify_Timer0_Int
+                                           ; SOURCE LINE # 30
+002E D3                SETB    C
+002F 22                RET     
+                                           ; SOURCE LINE # 31
+0030         ?C0001:
+                                           ; SOURCE LINE # 32
+0030 C3                CLR     C
+                                           ; SOURCE LINE # 33
+0031         ?C0002:
+0031 22                RET     
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 5   
+
+             ; FUNCTION Source_Control (END)
+
+             ; FUNCTION _Change_Source (BEGIN)
+                                           ; SOURCE LINE # 35
+;---- Variable 'source' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 36
+                                           ; SOURCE LINE # 37
+0000 7401              MOV     A,#01H
+0002 C3                CLR     C
+0003 9F                SUBB    A,R7
+0004 401C              JC      ?C0004
+0006         ?C0003:
+                                           ; SOURCE LINE # 39
+0006 EF                MOV     A,R7
+0007 7002              JNZ     ?C0005
+                                           ; SOURCE LINE # 40
+                                           ; SOURCE LINE # 41
+                                           ; SOURCE LINE # 42
+0009 8014              SJMP    ?C0048
+000B         ?C0005:
+                                           ; SOURCE LINE # 43
+000B BF0105            CJNE    R7,#01H,?C0007
+                                           ; SOURCE LINE # 44
+                                           ; SOURCE LINE # 46
+000E 7800        E     MOV     R0,#LOW ucInputSrc
+0010 7601              MOV     @R0,#01H
+                                           ; SOURCE LINE # 50
+0012 22                RET     
+0013         ?C0007:
+                                           ; SOURCE LINE # 51
+0013 EF                MOV     A,R7
+0014 6402              XRL     A,#02H
+0016 6003              JZ      ?C0010
+0018 BF0303            CJNE    R7,#03H,?C0009
+001B         ?C0010:
+                                           ; SOURCE LINE # 52
+                                           ; SOURCE LINE # 56
+001B E4                CLR     A
+001C         ?C0047:
+                                           ; SOURCE LINE # 58
+001C 8001              SJMP    ?C0048
+001E         ?C0009:
+                                           ; SOURCE LINE # 59
+                                           ; SOURCE LINE # 60
+                                           ; SOURCE LINE # 64
+                                           ; SOURCE LINE # 66
+                                           ; SOURCE LINE # 68
+                                           ; SOURCE LINE # 72
+001E E4                CLR     A
+001F         ?C0048:
+001F 7800        E     MOV     R0,#LOW ucInputSrc
+0021 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 74
+                                           ; SOURCE LINE # 75
+0022         ?C0004:
+0022 22                RET     
+             ; FUNCTION _Change_Source (END)
+
+             ; FUNCTION Source_Auto_Scan (BEGIN)
+                                           ; SOURCE LINE # 78
+                                           ; SOURCE LINE # 79
+                                           ; SOURCE LINE # 81
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 6   
+
+0000 E500        E     MOV     A,stGUD1+01H
+0002 5407              ANL     A,#07H
+0004 F500        E     MOV     Data,A
+                                           ; SOURCE LINE # 82
+0006 6009              JZ      ?C0015
+0008 6401              XRL     A,#01H
+000A 6005              JZ      ?C0015
+000C E500        E     MOV     A,Data
+000E B40302            CJNE    A,#03H,?C0014
+0011         ?C0015:
+                                           ; SOURCE LINE # 83
+0011 B200        R     CPL     bSourceScanEnable
+0013         ?C0014:
+                                           ; SOURCE LINE # 85
+0013 200003      R     JB      bSourceScanEnable,?C0016
+                                           ; SOURCE LINE # 86
+0016 120000      E     LCALL   Mode_Detector
+0019         ?C0016:
+                                           ; SOURCE LINE # 88
+0019 200003      E     JB      bStable,$ + 6H
+001C 020000      R     LJMP    ?C0046
+001F 200003      R     JB      bSourceScanEnable,$ + 6H
+0022 020000      R     LJMP    ?C0046
+                                           ; SOURCE LINE # 89
+                                           ; SOURCE LINE # 91
+0025 7800        R     MOV     R0,#LOW ucNext_Source
+0027 E6                MOV     A,@R0
+0028 FF                MOV     R7,A
+0029 120000      E     LCALL   _Measure_Source
+                                           ; SOURCE LINE # 93
+002C 7800        R     MOV     R0,#LOW ucNext_Source
+002E E6                MOV     A,@R0
+002F 6007              JZ      ?C0019
+0031 6401              XRL     A,#01H
+0033 6003              JZ      $ + 5H
+0035 020000      R     LJMP    ?C0018
+0038         ?C0019:
+                                           ; SOURCE LINE # 94
+                                           ; SOURCE LINE # 95
+0038 E4                CLR     A
+0039 FB                MOV     R3,A
+003A 7D09              MOV     R5,#09H
+003C 7F4C              MOV     R7,#04CH
+003E 120000      E     LCALL   _RTDRead
+                                           ; SOURCE LINE # 97
+0041 E500        E     MOV     A,Data
+0043 30E10D            JNB     ACC.1,?C0020
+                                           ; SOURCE LINE # 98
+                                           ; SOURCE LINE # 99
+0046 7D20              MOV     R5,#020H
+0048 7F4C              MOV     R7,#04CH
+004A 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 100
+004D 750080      E     MOV     Data+02H,#080H
+                                           ; SOURCE LINE # 101
+0050 750080      E     MOV     Data+04H,#080H
+                                           ; SOURCE LINE # 102
+0053         ?C0020:
+                                           ; SOURCE LINE # 104
+0053 E500        E     MOV     A,Data+04H
+0055 20E757            JB      ACC.7,?C0021
+0058 E500        E     MOV     A,Data+02H
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 7   
+
+005A 20E752            JB      ACC.7,?C0021
+                                           ; SOURCE LINE # 105
+                                           ; SOURCE LINE # 106
+005D 850000      E     MOV     Data+05H,Data+03H
+                                           ; SOURCE LINE # 107
+0060 530087      E     ANL     Data+04H,#087H
+                                           ; SOURCE LINE # 108
+0063 850000      E     MOV     Data+03H,Data+01H
+                                           ; SOURCE LINE # 109
+0066 53008F      E     ANL     Data+02H,#08FH
+                                           ; SOURCE LINE # 112
+0069 C3                CLR     C
+006A E500        E     MOV     A,Data+02H
+006C 9404              SUBB    A,#04H
+006E 5028              JNC     ?C0022
+0070 E500        E     MOV     A,Data+03H
+0072 9404              SUBB    A,#04H
+0074 E500        E     MOV     A,Data+02H
+0076 9401              SUBB    A,#01H
+0078 401E              JC      ?C0022
+007A E500        E     MOV     A,Data+05H
+007C 94EC              SUBB    A,#0ECH
+007E E500        E     MOV     A,Data+04H
+0080 9404              SUBB    A,#04H
+0082 5014              JNC     ?C0022
+0084 E500        E     MOV     A,Data+05H
+0086 94AE              SUBB    A,#0AEH
+0088 E500        E     MOV     A,Data+04H
+008A 9401              SUBB    A,#01H
+008C 400A              JC      ?C0022
+                                           ; SOURCE LINE # 113
+                                           ; SOURCE LINE # 114
+008E 7800        R     MOV     R0,#LOW ucSource_Times
+0090 E6                MOV     A,@R0
+0091 9403              SUBB    A,#03H
+0093 504A              JNC     ?C0049
+                                           ; SOURCE LINE # 115
+0095 06                INC     @R0
+0096 806E              SJMP    ?C0035
+0098         ?C0022:
+                                           ; SOURCE LINE # 124
+                                           ; SOURCE LINE # 125
+                                           ; SOURCE LINE # 127
+0098 120000      R     LCALL   L?0054
+009B 7006              JNZ     ?C0026
+009D 7E01              MOV     R6,#01H
+009F 7F01              MOV     R7,#01H
+00A1 805F              SJMP    ?C0051
+00A3         ?C0026:
+00A3 EF                MOV     A,R7
+00A4 B40104            CJNE    A,#01H,?C0028
+00A7 7F03              MOV     R7,#03H
+00A9 8002              SJMP    ?C0029
+00AB         ?C0028:
+00AB 7F00              MOV     R7,#00H
+00AD         ?C0029:
+00AD         ?C0027:
+                                           ; SOURCE LINE # 130
+                                           ; SOURCE LINE # 132
+00AD 8053              SJMP    ?C0051
+00AF         ?C0021:
+                                           ; SOURCE LINE # 134
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 8   
+
+                                           ; SOURCE LINE # 135
+                                           ; SOURCE LINE # 136
+00AF 120000      R     LCALL   L?0054
+00B2 7006              JNZ     ?C0031
+00B4 7E01              MOV     R6,#01H
+00B6 7F01              MOV     R7,#01H
+00B8 800A              SJMP    ?C0032
+00BA         ?C0031:
+00BA EF                MOV     A,R7
+00BB B40104            CJNE    A,#01H,?C0033
+00BE 7F03              MOV     R7,#03H
+00C0 8002              SJMP    ?C0034
+00C2         ?C0033:
+00C2 7F00              MOV     R7,#00H
+00C4         ?C0034:
+00C4         ?C0032:
+00C4         ?C0050:
+                                           ; SOURCE LINE # 139
+                                           ; SOURCE LINE # 140
+00C4 803C              SJMP    ?C0051
+00C6         ?C0018:
+                                           ; SOURCE LINE # 142
+                                           ; SOURCE LINE # 143
+00C6 7B01              MOV     R3,#01H
+00C8 7D1F              MOV     R5,#01FH
+00CA 7F42              MOV     R7,#042H
+00CC 120000      E     LCALL   _I2CRead
+                                           ; SOURCE LINE # 145
+00CF E500        E     MOV     A,Data
+00D1 20E619            JB      ACC.6,?C0036
+                                           ; SOURCE LINE # 146
+                                           ; SOURCE LINE # 147
+00D4 7800        R     MOV     R0,#LOW ucSource_Times
+00D6 E6                MOV     A,@R0
+00D7 C3                CLR     C
+00D8 9403              SUBB    A,#03H
+00DA 5003              JNC     ?C0037
+                                           ; SOURCE LINE # 148
+00DC 06                INC     @R0
+00DD 8027              SJMP    ?C0035
+00DF         ?C0037:
+                                           ; SOURCE LINE # 150
+                                           ; SOURCE LINE # 151
+00DF         ?C0049:
+00DF 7800        R     MOV     R0,#LOW ucNext_Source
+00E1 E6                MOV     A,@R0
+00E2 7800        E     MOV     R0,#LOW ucInputSrc
+00E4 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 152
+00E5 E4                CLR     A
+00E6 7800        R     MOV     R0,#LOW ucNext_Source
+00E8 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 153
+00E9 18                DEC     R0
+00EA F6                MOV     @R0,A
+                                           ; SOURCE LINE # 154
+                                           ; SOURCE LINE # 155
+00EB 8019              SJMP    ?C0035
+00ED         ?C0036:
+                                           ; SOURCE LINE # 157
+                                           ; SOURCE LINE # 158
+                                           ; SOURCE LINE # 160
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 9   
+
+00ED 120000      R     LCALL   L?0055
+00F0 7006              JNZ     ?C0040
+00F2 7E01              MOV     R6,#01H
+00F4 7F01              MOV     R7,#01H
+00F6 800A              SJMP    ?C0041
+00F8         ?C0040:
+00F8 EF                MOV     A,R7
+00F9 B40104            CJNE    A,#01H,?C0042
+00FC 7F03              MOV     R7,#03H
+00FE 8002              SJMP    ?C0043
+0100         ?C0042:
+0100 7F00              MOV     R7,#00H
+0102         ?C0043:
+0102         ?C0041:
+0102         ?C0051:
+0102 7800        R     MOV     R0,#LOW ucNext_Source
+0104 A607              MOV     @R0,AR7
+                                           ; SOURCE LINE # 162
+                                           ; SOURCE LINE # 163
+0106         ?C0035:
+                                           ; SOURCE LINE # 165
+0106 E4                CLR     A
+0107 FD                MOV     R5,A
+0108 7F4A              MOV     R7,#04AH
+010A 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 168
+010D E500        E     MOV     A,stGUD1+01H
+010F 5407              ANL     A,#07H
+0111 7009              JNZ     ?C0044
+0113 7800        E     MOV     R0,#LOW ucSync_Type
+0115 E6                MOV     A,@R0
+0116 6004              JZ      ?C0044
+                                           ; SOURCE LINE # 169
+0118 7D32              MOV     R5,#032H
+011A 8002              SJMP    ?C0052
+011C         ?C0044:
+                                           ; SOURCE LINE # 171
+011C 7D02              MOV     R5,#02H
+011E         ?C0052:
+011E 7F4C              MOV     R7,#04CH
+0120 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 173
+                                           ; SOURCE LINE # 174
+0123         ?C0046:
+0123 22                RET     
+             ; FUNCTION Source_Auto_Scan (END)
+
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 10  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+_Change_Source . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  source . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+bNotify_Timer0_Int . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_Set_Task. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Save_GUD1. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+ucModeCnt. . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_Measure_Source. . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_RTDSetByte. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 11  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+ucInputSrc . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+_I2CRead . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+Mode_Detector. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bSourceScanEnable. . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+ucSource_Times . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0000H  1
+Source_Control . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+Measure_Mode . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bStable. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+_RTDRead . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+ucNext_Source. . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0001H  1
+Source_Auto_Scan . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+Init_Input_Source. . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+C51 COMPILER V7.06   SRC_CTRL                                                              11/21/2005 13:47:43 PAGE 12  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+Reset_Mode . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+stGUD1 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  8
+Data . . . . . . . . . . . . . . . . .  EXTERN   DATA   ARRAY    -----  16
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+ucSync_Type. . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    385    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =      2    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,187 @@
+#include "Header\main_def.h"
+
+#if(MCU_TYPE == MCU_MTV512)
+#include "Header\MTV512.h"
+#endif
+
+///////////////////////////////////////////////////////////////////
+// Definitions for GPIO control
+
+#define PANEL_ON        1   // Power on  state for LCD panel 
+#define PANEL_OFF       0   // Power off state for LCD panel
+
+#define LIGHT_ON        1   // Power on  state for backlight inverter
+#define LIGHT_OFF       0   // Power off state for backlight inverter
+
+#define VDC_ON          1   // Power on  state for video decoder
+#define VDC_OFF         0   // Power off state for video decoder
+
+#define LVDS_ON         0   // Power on  state for LVDS Tx
+#define LVDS_OFF        1   // Power off state for LVDS Tx
+
+#define VGA_ONLINE      0   // VGA cable connected state
+#define DVI_ONLINE      1   // DVI cable connected state
+
+#define ADC_RED_PHASE_FT    (0x01 << 2)//(0x07 << 2)  //ADC RED phase fine tune   (0x00 ~ 0x07)
+#define ADC_GREEN_PHASE_FT  (0x01 << 4)//(0x00 << 4)  //ADC GREEN phase fine tune (0x00 ~ 0x07)
+#define ADC_BLUE_PHASE_FT    0x01        //ADC BLUE phase fine tune  (0x00 ~ 0x07)
+
+#if(KINGMICE)
+
+    sbit bRTD_IRQ       = 0x86;
+    sbit bDVI_CONNECT   = 0x87;
+    
+    sbit bPANEL_PWR     = 0x90;
+    sbit bLIGHT_PWR     = 0x91;
+    sbit bIIC_SCL       = 0x92;
+    sbit bIIC_SDA       = 0x93;
+    sbit bRTD_PWR       = 0x94;
+    
+    #if(PARALLEL_PORT)
+    sbit bRTD_SDIO_0    = 0x95;
+    sbit bRTD_SDIO_3    = 0x94;//joe1205
+    sbit bRTD_SDIO_2    = 0xb2;
+    sbit bRTD_SDIO_1    = 0xb0;//joe1205
+    #else
+    sbit bRTD_SDIO_0    = 0x95;
+    #endif
+    
+    sbit bRTD_SCLK      = 0x96;
+    sbit bRTD_SCSB      = 0x97;
+    sbit bRTD_RST       = 0xb1;
+    
+    sbit bLVDS_PWR      = 0xb7;
+    sbit bPOWER_KEY     = 0xb7;
+    sbit bTMDS_PWR      = 0xa2;
+    sbit bVDC_PWR       = 0xb1;
+    sbit bVGA_CONNECT   = 0xa5;
+    
+    sbit bDDC_SDA       = 0xb0;
+    sbit bDDC_SCL       = 0xb1;
+    sbit bIR_GPIO       = 0xb2;
+    sbit bMENU_KEY      = 0xb3;
+    sbit bENTER_KEY     = 0xb4;
+    sbit bRIGHT_KEY     = 0xb5;
+    sbit bLEFT_KEY      = 0xb6;
+    //sbit bPOWER_KEY     = 0xb7;
+    
+    
+    // For button control
+    #define POWER_KEY_PORT  0x03    // Port 3
+    #define POWER_KEY_MASK  0x80    // Bit  7
+    
+    #define MENU_KEY_PORT   0x03    // Port 3
+    #define MENU_KEY_MASK   0x08    // Bit  3
+    
+    #define ENTER_KEY_PORT  0x03    // Port 3
+    #define ENTER_KEY_MASK  0x10    // Bit  4
+    
+    #define RIGHT_KEY_PORT  0x03    // Port 3
+    #define RIGHT_KEY_MASK  0x20    // Bit  5
+    
+    #define LEFT_KEY_PORT   0x03    // Port 3
+    #define LEFT_KEY_MASK   0x40    // Bit  6
+    
+#else//(!KINGMICE)
+
+#if(MCU_TYPE == MCU_WINBOND)
+
+
+sbit bRTD_SDIO_0    = 0x80;
+#if(PARALLEL_PORT)
+sbit bRTD_SDIO_1    = 0x81;
+sbit bRTD_SDIO_2    = 0x82;
+sbit bRTD_SDIO_3    = 0x83;
+#endif
+
+sbit bRTD_SCLK      = 0x84;
+sbit bRTD_SCSB      = 0x85;
+sbit bLIGHT_PWR     = 0x86;
+sbit bPANEL_PWR     = 0x87;
+
+sbit bMENU_KEY      = 0x90;     //p1.0     
+sbit bAUTO_KEY      = 0x91;     //p1.1     
+sbit bRIGHT_KEY     = 0x92;     //p1.2     
+sbit bLEFT_KEY      = 0x93;     //p1.3     
+sbit bPOWER_KEY     = 0x94;     //p1.4     
+sbit bUP_KEY        = 0x95;     //P1.5     
+sbit bDOWN_KEY      = 0x96;     //P1.6     
+sbit bENTER_KEY     = 0x97;     //p1.7                 
+               
+sbit bDDC_SCL       = 0xb0;
+sbit bDDC_SDA       = 0xb1;
+sbit bIR_GPIO       = 0xb2;
+sbit bIIC_SCL       = 0xb3;
+sbit bIIC_SDA       = 0xb4;
+sbit bRTD_RST       = 0xb5;
+
+sbit bRED_LED       = 0xa4;     //LED 1     
+sbit bGREEN_LED     = 0xa5;     //LED 2     
+sbit bMUTE          = 0xa6;     //Audio mute
+
+sbit bVGA_CONNECT   = 0xa7;
+
+
+
+// For button control
+#define MENU_KEY_PORT   0x01    // Port 1   
+#define MENU_KEY_MASK   0x01    // Bit  0   
+                                            
+#define AUTO_KEY_PORT   0x01    //port 1    
+#define AUTO_KEY_MASK   0x02    //Bit  1    
+                                            
+#define RIGHT_KEY_PORT  0x01    // Port 1   
+#define RIGHT_KEY_MASK  0x04    // Bit  2   
+                                            
+#define LEFT_KEY_PORT   0x01    // Port 1   
+#define LEFT_KEY_MASK   0x08    // Bit  3   
+                                            
+#define POWER_KEY_PORT  0x01    // Port 1   
+#define POWER_KEY_MASK  0x10    // Bit  4   
+                                            
+#define UP_KEY_PORT     0x01    // Port 1   
+#define UP_KEY_MASK     0x20    // Bit  5   
+                                            
+#define DOWN_KEY_PORT   0x01    // PORT 1   
+#define DOWN_KEY_MASK   0x40    // Bit 6    
+                                                
+#define ENTER_KEY_PORT  0x01    // Port 1       
+#define ENTER_KEY_MASK  0x80    // Bit  7       
+    
+#else//#if(MCU_TYPE != MCU_WINBOND)
+
+sbit bPANEL_PWR               = 0x97;
+sbit bLIGHT_PWR               = 0x96;
+sbit bIIC_SCL                 = 0x94;
+sbit bIIC_SDA                 = 0x95;
+sbit bRTD_RST                 = 0x93;
+sbit bRTD_SDI                 = 0x90;
+sbit bRTD_SDO                 = 0x90;
+sbit bRTD_SCLK                = 0x91;
+sbit bRTD_SCSB                = 0x92;
+ 
+sbit bVDC_PWR                 = 0xb2;	//P3^2;
+sbit bVGA_CONNECT             = 0xa0;	//P2^0;
+
+
+#define bRIGHT_KEY  	(M512_Port50&0x01)//((byM212_Port50&0x01)==0x01)
+#define bLEFT_KEY   	(M512_Port51&0x01)
+#define bENTER_KEY  	(M512_Port52&0x01)
+#define bMENU_KEY   	(M512_Port53&0x01)
+#define bPOWER_KEY  	(M512_Port54&0x01)
+
+// For button control
+#define POWER_KEY_MASK  0x10    // Bit  4
+
+#define MENU_KEY_MASK   0x08    // Bit  3
+
+#define ENTER_KEY_MASK  0x04    // Bit  2
+
+#define LEFT_KEY_MASK   0x02    // Bit  1
+
+#define RIGHT_KEY_MASK  0x01    // Bit  0
+
+
+#endif
+
+#endif

@@ -1,0 +1,1588 @@
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE FRAME_SYNC
+OBJECT MODULE PLACED IN .\Output\Frame_Sync.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Frame_Sync.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS 
+                    -PRINT(.\Output\Frame_Sync.lst) PREPRINT(.\Output\Frame_Sync.i) OBJECT(.\Output\Frame_Sync.obj)
+
+stmt level    source
+
+   1          #define __FRAMESYNC__
+   2          
+   3          #include "Header\Frame_Sync.h"
+   4          #include "Header\Lcd_func.h"
+   5          #include "Header\Access.h"
+   6          #include "Header\Main_def.h"
+   7          #include "Header\Config.h"
+   8          #include "Header\Lcd_main.h"
+   9          #include "Header\LCD_OSD.h"
+  10          
+  11          
+  12          
+  13                  /////////////////////////
+  14                  // Frame-Sync Detector //
+  15                  /////////////////////////
+  16          bit Frame_Sync_Detector(void)
+  17          {
+  18   1              if (bPower_Status && bStable && MODE_NOSIGNAL != ucMode_Curr && MODE_NOSUPPORT != ucMode_Curr)
+  19   1              {
+  20   2                  if (bFrameSync)
+  21   2                  {
+  22   3                      RTDRead(STATUS1_1F, 1, N_INC);
+  23   3                      ucStatus    |= (Data[0] >> 6);
+  24   3      
+  25   3                                      if(Data[0])
+  26   3                                              RTDSetByte(STATUS1_1F,0x00);
+  27   3      
+  28   3                      if (Data[0] & 0xc0)
+  29   3                      {
+  30   4                          ucSyncErrorCnt  += 1;
+  31   4      #if (RTDDEBUG)
+                                  if (0xff > ucDebug)     ucDebug ++; 
+              #endif
+  34   4                      }
+  35   3      
+  36   3      //#if (DISP_BIT == DISP_18BIT)
+  37   3      //                else if (Data[0] & 0x04)
+  38   3      //                {
+  39   3      //                    bDitherToggle   = !bDitherToggle;
+  40   3      
+  41   3      //                    if (bDitherToggle)
+  42   3      //                    {
+  43   3      //                        bDitherTable    = !bDitherTable;
+  44   3      //                        WriteDither(bDitherTable ? DITHER_1 : DITHER_2);
+  45   3      //                    }
+  46   3      //                }
+  47   3      //#endif
+  48   3      
+  49   3                  }
+  50   2      
+  51   2                  if (SYNC_FAIL_TIMES >= ucSyncErrorCnt)
+  52   2                  {
+  53   3                      RTDRead(STATUS0_01, 1, N_INC);
+  54   3                      ucStatus    |= (Data[0] & 0xfc);
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 2   
+
+  55   3      
+  56   3      
+  57   3                                      if(Data[0])
+  58   3                                              RTDSetByte(STATUS0_01,0x00); //if some event happened, write once to clear status
+  59   3                     
+  60   3                      if (Data[0] & 0x60)     ucSyncErrorCnt  += (SYNC_FAIL_TIMES + 1);
+  61   3      
+  62   3                      if (SOURCE_VGA == (stGUD1.INPUT_SOURCE & 0x07))
+  63   3                      {
+  64   4                          if (Data[0] & 0x80)
+  65   4                          {
+  66   5                              ucSyncErrorCnt  += 1;
+  67   5      #if (RTDDEBUG)
+                                      if (0xff > ucDebug)     ucDebug ++;                       
+              #endif
+  70   5                          }
+  71   4                          else
+  72   4                          {
+  73   5      
+  74   5      #if(TUNE_APLL)
+  75   5      
+  76   5                        RTDSetBit(DV_TOTAL_STATUS_3D, 0x7f, 0x20); //Enable PE Max Measurement
+  77   5                                        Delay_Xms(1);
+  78   5                            RTDRead(DV_TOTAL_STATUS_3D, 1, N_INC);
+  79   5                            ucPE_Max = Data[0] & 0x1f;
+  80   5                                        if((ucPE_Max > 0x10) && (ucPE_Level == 0))
+  81   5                                        {
+  82   6                                            ucPE_Level = 1;
+  83   6                                                Adjust_I_Code();
+  84   6                            if((ucI_Code & 0x80) == 0x80)
+  85   6                               RTDSetBit(I_CODE_MB_CA,0xdf,0x20);  //Set the I_Code[13] to 1;
+  86   6                            else
+  87   6                               RTDSetBit(I_CODE_MB_CA,0xdf,0x00);  //Set the I_Code[13] to 0;
+  88   6                            
+  89   6                            ucI_Code = ucI_Code & 0x7f;
+  90   6                                RTDSetByte(I_CODE_LB_C9,0x1c | ((ucI_Code & 0x07) << 5));
+  91   6                                RTDSetBit(I_CODE_MB_CA,0xfc,0x04 | ((ucI_Code & 0x18) >> 3));
+  92   6      
+  93   6                                                RTDSetBit(DV_TOTAL_STATUS_3D, 0xdf, 0x00);//Disable PE Max Measurement
+  94   6                            RTDSetByte(DV_TOTAL_STATUS_3D,0x40); //clear PE Max value
+  95   6                                                ucPE_Max = 0;
+  96   6                                        }
+  97   5                                        
+  98   5      #endif
+  99   5                          }
+ 100   4                      }
+ 101   3                  }
+ 102   2      
+ 103   2                  if (SYNC_FAIL_TIMES < ucSyncErrorCnt)
+ 104   2                  {
+ 105   3                      Reset_Mode();
+ 106   3      
+ 107   3                      Set_Task(STATE_MODECHANGE);     // Notify Task State Machine
+ 108   3      
+ 109   3                      bNotify_Timer0_Int  = 0;
+ 110   3      
+ 111   3                      return _TRUE;
+ 112   3                      //continue;                       // leave current iteration.
+ 113   3                  }
+ 114   2      
+ 115   2                  if (bNotify_Timer0_Int && MODE_DETECT_FREQ == ucModeCnt)
+ 116   2                  {
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 3   
+
+ 117   3                      if (ucSyncErrorCnt)     ucSyncErrorCnt  -= 1;
+ 118   3      
+ 119   3                  }
+ 120   2              }
+ 121   1              return _FALSE;
+ 122   1      }
+ 123          
+ 124          /////////////////////////////////////////////////////////////////////////////////
+ 125          // FrameSync fine-tune routines
+ 126          /////////////////////////////////////////////////////////////////////////////////
+ 127          void AbortSync(void)
+ 128          {
+ 129   1          Data[0] = 5;
+ 130   1          Data[1] = Y_INC;
+ 131   1          Data[2] = DH_TOTAL_22;
+ 132   1          Data[3] = (unsigned char)usDH_Total;
+ 133   1          Data[4] = (unsigned char)(usDH_Total >> 8);
+ 134   1          Data[5] = 0;
+ 135   1          RTDWrite(Data);
+ 136   1      
+ 137   1          RTDSetBit(DV_TOTAL_H_2E, 0x07, 0x00);
+ 138   1      }
+ 139          
+ 140          unsigned char TestSync(unsigned int offset)     // 0 - Success; Otherwise - Fail
+ 141          {
+ 142   1      
+ 143   1              RTDSetByte(DCLK_OFFSET_LSB_9A,(unsigned char)offset);
+ 144   1              RTDSetBit(DCLK_OFFSET_MSB_9B,0xf0,(unsigned char)((offset >> 8) & 0x0f) | 0x20);
+ 145   1      
+ 146   1          //RTDSetBit(DV_TOTAL_H_2E, 0x07, fine & 0xf8);
+ 147   1      
+ 148   1          Wait_For_Event(EVENT_DVS);          // Wait for Frame End
+ 149   1          //Delay_Xms(10);
+ 150   1      
+ 151   1              RTDSetByte(STATUS0_01,0x00);
+ 152   1      
+ 153   1          Wait_For_Event(EVENT_DVS);          // Wait for Frame End
+ 154   1      
+ 155   1          //RTDSetByte(STATUS0_01,0x00);////
+ 156   1      /*
+ 157   1          if (SOURCE_VGA != (stGUD1.INPUT_SOURCE & 0x07))
+ 158   1          {
+ 159   1              Wait_For_Event(EVENT_DVS);      // Wait for Frame End
+ 160   1          }
+ 161   1      */
+ 162   1          Wait_For_Event(EVENT_DVS);          // Wait for Frame End
+ 163   1      
+ 164   1              //RTDSetByte(STATUS0_01,0x00);////
+ 165   1              //Delay_Xms(10);
+ 166   1      
+ 167   1          RTDRead(STATUS0_01, 1, N_INC);      // Get status
+ 168   1      
+ 169   1      
+ 170   1              if(Data[0])
+ 171   1                  RTDSetByte(STATUS0_01,0x00);
+ 172   1      
+ 173   1      
+ 174   1          if (Data[0] & 0x60) // Mode Changed
+ 175   1          {
+ 176   2              AbortSync();
+ 177   2              return 1;
+ 178   2          }
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 4   
+
+ 179   1      
+ 180   1          Data[0] &= 0x03;
+ 181   1      
+ 182   1          return 0;   // Success
+ 183   1      }
+ 184          
+ 185          
+ 186          
+ 187          //Returned value
+ 188          // 0 : Succeed(Frame-sync settings returned in Data[3] and Data[4])
+ 189          // 1 : Fail
+ 190          // 2 : Abort
+ 191          #define Offset_Step      32//16 //This value should better larger then 16
+ 192          unsigned char Frame_Sync(void)
+ 193          {
+ 194   1         unsigned int idata usBuffer,usDelta;
+ 195   1         unsigned char idata  ucFine,ucTemp=0;
+ 196   1      
+ 197   1      #if(FIX_LAST_DHT)
+                 unsigned int idata usMax_Last_Line,usMin_Last_Line;
+              #endif
+ 200   1      
+ 201   1      
+ 202   1      
+ 203   1         RTDRead(DCLK_OFFSET_LSB_9A , 2, Y_INC);
+ 204   1         Data[2] = Data[1] & 0x0f;
+ 205   1         Data[3] = Data[0];
+ 206   1         usBuffer = ((unsigned int*)Data)[1];//get the DCLK offset
+ 207   1         //usDelta = ((unsigned int*)Data)[1];//get the DCLK offset
+ 208   1         usDelta = usBuffer;
+ 209   1      //   ucFine = 0;
+ 210   1      
+ 211   1         if(((stGUD1.INPUT_SOURCE & 0x07) == SOURCE_VGA) || ((stGUD1.INPUT_SOURCE & 0x07) == SOURCE_DVI))
+ 212   1         {
+ 213   2      
+ 214   2         //while(usDelta < Offset_Step * 14) 
+ 215   2         while(usBuffer < (1228 + 14 * Offset_Step))
+ 216   2         //while(usBuffer < (1228 + 24 * Offset_Step))        //eric 0729 issue: dvi flash
+ 217   2         {
+ 218   3                 RTDRead(DPLL_M_D1,2,Y_INC);
+ 219   3                 RTDSetByte(DPLL_M_D1,Data[0]+1);
+ 220   3                 RTDSetByte(DPLL_N_D2,Data[1]);
+ 221   3      //     Forster :
+ 222   3      //     if the DCLK offset too small, then set the M_Code = M_Code + 1
+ 223   3      //     And reculculate the offset
+ 224   3      //     Original formula:
+ 225   3      //     24.576M * M/N - 24.576M*M/N/2^15*old_offset = 24.576M*(M+1)/N - 24.576M*(M+1)/N/2^15*new_offset
+ 226   3      //     => new_offset = (2^15 + M*old_offset) / (M+1);
+ 227   3                 usBuffer = (unsigned int)((unsigned long)(32768 + (unsigned long)(Data[0] + 2) * usBuffer)/(unsigned l
+             -ong)(Data[0] + 3));
+ 228   3                 //usBuffer = (32768 + (Data[0] + 2) * usDelta)/(Data[0] + 3);
+ 229   3                 usDelta = usBuffer;
+ 230   3             
+ 231   3         }
+ 232   2      
+ 233   2      
+ 234   2      /*   //Below spend more code size
+ 235   2         ((unsigned int*)Data)[1] = 1228 + 14 * Offset_Step;
+ 236   2      
+ 237   2         if(usBuffer < ((unsigned int*)Data)[1])
+ 238   2         {
+ 239   2                 RTDRead(DPLL_M_D1,1,N_INC);
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 5   
+
+ 240   2                 
+ 241   2                 ucFine =(unsigned char)((unsigned long)(Data[0] + 2) * (((unsigned int*)Data)[1] - usBuffer)/(unsigned
+             - long)(32768 - ((unsigned int*)Data)[1]));
+ 242   2      
+ 243   2                 usBuffer = (unsigned int)(((unsigned long)32768 * (ucFine + 1) + (unsigned long)(Data[0] + 2) * usBuff
+             -er)/(unsigned long)(Data[0] + 2 + (ucFine + 1)));
+ 244   2      
+ 245   2                 RTDSetByte(DPLL_M_D1,Data[0] + ucFine + 1);
+ 246   2                 RTDSetBit(DPLL_N_D2,0xf8,USER_MODE_NCODE - 2);
+ 247   2         }
+ 248   2      
+ 249   2         usDelta = usBuffer;
+ 250   2      */   
+ 251   2         usDelta -= 128; //Clk offset fine-tune
+ 252   2         }
+ 253   1      
+ 254   1         usBuffer = usDelta;
+ 255   1        
+ 256   1      
+ 257   1         for(ucFine =0;ucFine < 14;ucFine++)
+ 258   1         {
+ 259   2                 if (TestSync(usDelta))    return 2;
+ 260   2      
+ 261   2                 if(Data[0] & 0x03)
+ 262   2                 {
+ 263   3                         usDelta = (Data[0] & 0x02) ? usDelta - Offset_Step : usDelta + Offset_Step;
+ 264   3                         ucTemp += 1;
+ 265   3                 }
+ 266   2                 else if((Data[0] & 0x03) == 0)
+ 267   2                         break;
+ 268   2         }
+ 269   1      
+ 270   1         if(Data[0] & 0x03)
+ 271   1                return 1;   // Frame sync fail  
+ 272   1      #if(SPREAD_SPECTRUM)
+ 273   1         else if(usDelta < usBuffer) //Get more margin of Framesync
+ 274   1         {
+ 275   2                 //usDelta -= 2;
+ 276   2                 if(TestSync(usDelta - 4))    return 2;
+ 277   2      
+ 278   2                 if(Data[0] & 0x03)
+ 279   2                     TestSync(usDelta);
+ 280   2                 else
+ 281   2                     usDelta -= 2;
+ 282   2                 
+ 283   2         }
+ 284   1         else//(usDelta > usBuffer) //Get more margin of Framesync
+ 285   1         {
+ 286   2                 //usDelta += 2;
+ 287   2                 if(TestSync(usDelta + 4))    return 2;
+ 288   2      
+ 289   2                 if(Data[0] & 0x03)
+ 290   2                     TestSync(usDelta);
+ 291   2                 else 
+ 292   2                     usDelta += 2;
+ 293   2         }
+ 294   1      #endif   
+ 295   1      
+ 296   1      //   ucDebug_Value0 = ucTemp;
+ 297   1      #if(FIX_LAST_DHT)
+              
+                 //Disable spread spectrum
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 6   
+
+              #if(SPREAD_SPECTRUM)
+                  RTDSetBit(SPREAD_SPECTRUM_99,0x0f,0x00);
+                      RTDSetBit(DCLK_OFFSET_MSB_9B,0xff,0x20);
+              #endif
+               
+                     //Read the last line information , read back data equal to half last line length
+                         RTDRead(LAST_LINE_H_2C, 1, N_INC);
+                     usMax_Last_Line = (unsigned int)(Data[0] & 0xf8) << 2;
+              
+                     RTDRead(LAST_LINE_L_26, 1, N_INC);
+                     usMax_Last_Line = usMax_Last_Line + (Data[0] / 8);
+                      
+                          
+                              
+                         //Read the last line information when frequency offset set one more step
+                         RTDSetByte(DCLK_OFFSET_LSB_9A,(unsigned char)(usDelta + 1));
+                         RTDSetBit(DCLK_OFFSET_MSB_9B,0xf0,(unsigned char)(((usDelta + 1) >> 8) & 0x07) | 0x20);
+              
+                         Wait_For_Event(EVENT_IVS);
+                         Wait_For_Event(EVENT_IVS);
+              
+                         RTDRead(LAST_LINE_H_2C, 1, N_INC);
+                     usMin_Last_Line = (unsigned int)(Data[0] & 0xf8) << 2;
+                     RTDRead(LAST_LINE_L_26, 1, N_INC);
+                     usMin_Last_Line = usMin_Last_Line + (Data[0] / 8);
+              
+                          
+              
+                         //Calculate the difference of last line when increase one offset step
+                         if(usMin_Last_Line < usMax_Last_Line)
+                                 usMin_Last_Line = usMax_Last_Line - usMin_Last_Line;
+                         else
+                                 usMin_Last_Line = usDH_Total/2 - usMin_Last_Line + usMax_Last_Line;
+              
+                         if(FIX_LAST_DHT > usMax_Last_Line)
+                         {
+                         if((FIX_LAST_DHT - usMax_Last_Line) > (usDH_Total / 4)) 
+                                 {   //decrease the last line, decrease the DClk
+                                         Data[0] = (unsigned int)(usMax_Last_Line + (usDH_Total / 2 - FIX_LAST_DHT)) / usMin_Last_Line;
+                                         usDelta = usDelta + Data[0];
+                                 }
+                                 else
+                                 {   //increase the last line, increase the DClk
+                                         Data[0] = (unsigned int)(FIX_LAST_DHT - usMax_Last_Line) / usMin_Last_Line; 
+                                         usDelta = usDelta - (Data[0] + 1);
+                                 }
+                         }
+                         else
+                         {
+                                 if((usMax_Last_Line - FIX_LAST_DHT) > (usDH_Total / 4)) 
+                                 {   //increase the last line, increase the DClk
+                                         Data[0] = (unsigned int)(FIX_LAST_DHT + (usDH_Total / 2 - usMax_Last_Line)) / usMin_Last_Line;
+                                         usDelta = usDelta - (Data[0] + 1);
+                                 }
+                                 else
+                                 {   //decrease the last line, decrease the DClk
+                                         Data[0] = (usMax_Last_Line - FIX_LAST_DHT) / usMin_Last_Line; 
+                                         Data[11] = Data[0];
+                                         usDelta += Data[0];
+                                         
+                                 }
+                         }
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 7   
+
+              
+              
+                       //Enable the apread spectrum again
+              #if (SPREAD_SPECTRUM)
+                  RTDSetBit(SPREAD_SPECTRUM_99,0x0f,(DCLK_SPRED_RANGE << 4));
+                  if(TestSync(usDelta + DCLK_OFFSET[DCLK_SPRED_RANGE]))    
+                         return 2;
+                      
+                      if(Data[0] & 0x03)
+                      {
+                     if(TestSync((Data[0] & 0x02) ? (usDelta + DCLK_OFFSET[DCLK_SPRED_RANGE] - 1)
+                                                      : (usDelta + DCLK_OFFSET[DCLK_SPRED_RANGE] + 1)))  //Fine tune Dclk offse
+             -t 
+                            return 2;
+                         else
+                         {
+                                if(Data[0] & 0x03)
+                                           return 1; //frame sync fail!
+                                        else
+                               return 0;
+                         }
+                      }
+              #else
+                  if(TestSync(usDelta))    return 2;
+              #endif
+              
+              
+                         RTDSetByte(FX_LST_LEN_L_59,(unsigned char)(FIX_LAST_DHT << 1));
+                         RTDSetBit(FX_LST_LEN_H_5A,0x08,(unsigned char)((FIX_LAST_DHT >> 7) & 0x07));
+              
+                      RTDRead(DV_ACT_END_34, 2, Y_INC);
+                      Data[2] = Data[1] & 0x07;
+                      Data[3] = Data[0];
+              
+                      Data[4] = ((Data[1] & 0xf0) >> 4); //Measure result of last 16 line of DVTotal, including the un-c
+             -omplete last line
+                  
+                      // Get Output_Active Height
+                      ((unsigned int *)Data)[1]   = ((unsigned int *)Data)[1] - DV_ACT_STA_POS;
+              
+                      // Original Idea :
+                      // DVTotal  = Output_Active_Line * (Input_Total_Line / Input_Active_Line) 
+                      usDelta = (unsigned long)usVsync * ((unsigned int *)Data)[1] / usIPV_ACT_LEN;   
+                      usDelta = (usDelta & 0xfff0 | Data[4]); 
+              
+                              RTDSetByte(FIX_DVTOTAL_LSB_97,(unsigned char)usDelta);
+                              RTDSetByte(FIX_DVTOTAL_MSB_98,(unsigned char)((usDelta >> 8) & 0x07));
+              
+                      RTDSetBit(SPREAD_SPECTRUM_99,0xfc,0x03); //Frequency Synthesis select N = 4
+                              RTDSetBit(DCLK_OFFSET_MSB_9B,0xff,0x20);
+              
+                      
+              //          RTDSetBit(FX_LST_LEN_H_5A,0xff,0x10); //Enable the Fixed DVTOTAL & Last Line Lenghth Fucntion
+              //          RTDSetBit(FX_LST_LEN_H_5A,0xff,0x10); //Enable the Fixed DVTOTAL & Last Line Lenghth Fucntion
+                         
+                         return 0;
+              #else
+ 417   1      
+ 418   1      #if (SPREAD_SPECTRUM)
+ 419   1          RTDSetBit(SPREAD_SPECTRUM_99,0x0f,(DCLK_SPRED_RANGE << 4));
+ 420   1          if(TestSync(usDelta + DCLK_OFFSET[DCLK_SPRED_RANGE]))    
+ 421   1                 return 2;
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 8   
+
+ 422   1              
+ 423   1              if(Data[0] & 0x03)
+ 424   1              {
+ 425   2             if(TestSync((Data[0] & 0x02) ? (usDelta + DCLK_OFFSET[DCLK_SPRED_RANGE] - 1)
+ 426   2                                              : (usDelta + DCLK_OFFSET[DCLK_SPRED_RANGE] + 1)))   //Fine tune Dclk offs
+             -et 
+ 427   2                            return 2;
+ 428   2                 else 
+ 429   2                 {
+ 430   3                        if(Data[0] & 0x03)
+ 431   3                                   return 1; //frame sync fail!
+ 432   3                                else
+ 433   3                       return 0;
+ 434   3                 }
+ 435   2                 
+ 436   2              }
+ 437   1      #else
+                     return 0;   
+              #endif
+ 440   1             return 0;
+ 441   1      #endif
+ 442   1      
+ 443   1      }
+ 444          
+ 445          
+ 446          
+ 447          
+ 448          void Adjust_I_Code(void)
+ 449          {
+ 450   1         // Calculate the IHF in KHz
+ 451   1                 ((unsigned int*)Data)[0] = 24576/usHsync; //Input Horizontal Frequency
+ 452   1                 //Formula: I_Correction = CE * 2 * Fav(253687) * 100 / IHF / 2^(I_Code - 34)
+ 453   1                 //Data[2] : I_Code = 14; I_Code[13] = 0;
+ 454   1      
+ 455   1                 ucI_Code = 14;
+ 456   1                 Data[2] = ((unsigned long)ucCE_Value * 50737400 / (unsigned long)((unsigned int*)Data)[0]) >> 20;
+ 457   1                 Data[3] = (I_Correction == 0) ? (ucPE_Level ? (Correct_Amount - ucP_Corr) : ((ucP_Corr >> 2) + 10)) : 
+ 458   1                                               I_Correction;
+ 459   1      
+ 460   1                 while(1)
+ 461   1                 {
+ 462   2                         
+ 463   2                         if(Data[2] > Data[3])
+ 464   2                         {
+ 465   3                                 Data[2] = Data[2] >> 1;
+ 466   3                                 ucI_Code -= 1;
+ 467   3      
+ 468   3                                 if(Data[2] <= Data[3])
+ 469   3                                         break;
+ 470   3                         }
+ 471   2                         else
+ 472   2                         {
+ 473   3                                 if((Data[2] << 1) > Data[3])
+ 474   3                                         break;
+ 475   3                                 else
+ 476   3                                 {
+ 477   4                                         Data[2] = Data[2] << 1;
+ 478   4                                         ucI_Code += 1;
+ 479   4                                 }
+ 480   3                         }
+ 481   2                 }
+ 482   1      //             ucDebug_Value1 = ucP_Corr;
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 9   
+
+ 483   1              
+ 484   1                 
+ 485   1             if((unsigned char)((unsigned int)Data[2]*3/2) <= Data[3]) // Judge if I_Code[13] set to 1 will more
+             - close to 155
+ 486   1                 {             
+ 487   2                   ucI_Code |= 0x80;
+ 488   2      //                       ucDebug_Value2 = ((unsigned char)((unsigned int)Data[2]*3) >> 1);   
+ 489   2                 }
+ 490   1                 else
+ 491   1                 {
+ 492   2      //                       ucDebug_Value2 = Data[2];   
+ 493   2                      }
+ 494   1                      
+ 495   1      
+ 496   1      }
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 10  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION Com0042 (BEGIN)
+0000         L?0067:
+0000         L?0068:
+0000 7800        R     MOV     R0,#LOW usDelta
+0002 E6                MOV     A,@R0
+0003 FE                MOV     R6,A
+0004 08                INC     R0
+0005 E6                MOV     A,@R0
+0006 FF                MOV     R7,A
+0007 22                RET     
+0008         L?0069:
+0008         L?0070:
+0008 E4                CLR     A
+0009 93                MOVC    A,@A+DPTR
+000A 7800        R     MOV     R0,#LOW usDelta+01H
+000C 26                ADD     A,@R0
+000D FF                MOV     R7,A
+000E E4                CLR     A
+000F 18                DEC     R0
+0010 36                ADDC    A,@R0
+0011 22                RET     
+0012         L?0072:
+0012 7800        R     MOV     R0,#LOW usDelta+01H
+0014 26                ADD     A,@R0
+0015 F6                MOV     @R0,A
+0016 18                DEC     R0
+0017 74FF              MOV     A,#0FFH
+0019 36                ADDC    A,@R0
+001A F6                MOV     @R0,A
+001B 22                RET     
+             ; FUNCTION Com0042 (END)
+
+             ; FUNCTION Frame_Sync_Detector (BEGIN)
+                                           ; SOURCE LINE # 16
+                                           ; SOURCE LINE # 17
+                                           ; SOURCE LINE # 18
+0000 200003      E     JB      bPower_Status,$ + 6H
+0003 020000      R     LJMP    ?C0001
+0006 200003      E     JB      bStable,$ + 6H
+0009 020000      R     LJMP    ?C0001
+000C 7800        E     MOV     R0,#LOW ucMode_Curr
+000E E6                MOV     A,@R0
+000F FF                MOV     R7,A
+0010 7003              JNZ     $ + 5H
+0012 020000      R     LJMP    ?C0001
+0015 F4                CPL     A
+0016 7003              JNZ     $ + 5H
+0018 020000      R     LJMP    ?C0001
+                                           ; SOURCE LINE # 19
+                                           ; SOURCE LINE # 20
+001B 300022      R     JNB     bFrameSync,?C0002
+                                           ; SOURCE LINE # 21
+                                           ; SOURCE LINE # 22
+001E 7F1F              MOV     R7,#01FH
+                                           ; SOURCE LINE # 23
+0020 120000      R     LCALL   L?0071
+0023 C4                SWAP    A
+0024 13                RRC     A
+0025 13                RRC     A
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 11  
+
+0026 5403              ANL     A,#03H
+0028 7800        R     MOV     R0,#LOW ucStatus
+002A 46                ORL     A,@R0
+002B F6                MOV     @R0,A
+                                           ; SOURCE LINE # 25
+002C E500        E     MOV     A,Data
+002E 6007              JZ      ?C0003
+                                           ; SOURCE LINE # 26
+0030 E4                CLR     A
+0031 FD                MOV     R5,A
+0032 7F1F              MOV     R7,#01FH
+0034 120000      E     LCALL   _RTDSetByte
+0037         ?C0003:
+                                           ; SOURCE LINE # 28
+0037 E500        E     MOV     A,Data
+0039 54C0              ANL     A,#0C0H
+003B 6003              JZ      ?C0002
+                                           ; SOURCE LINE # 29
+                                           ; SOURCE LINE # 30
+003D 7800        R     MOV     R0,#LOW ucSyncErrorCnt
+003F 06                INC     @R0
+                                           ; SOURCE LINE # 34
+                                           ; SOURCE LINE # 49
+0040         ?C0002:
+                                           ; SOURCE LINE # 51
+0040 7401              MOV     A,#01H
+0042 C3                CLR     C
+0043 7800        R     MOV     R0,#LOW ucSyncErrorCnt
+0045 96                SUBB    A,@R0
+0046 5003              JNC     $ + 5H
+0048 020000      R     LJMP    ?C0005
+                                           ; SOURCE LINE # 52
+                                           ; SOURCE LINE # 53
+004B 7F01              MOV     R7,#01H
+                                           ; SOURCE LINE # 54
+004D 120000      R     LCALL   L?0071
+0050 54FC              ANL     A,#0FCH
+0052 7800        R     MOV     R0,#LOW ucStatus
+0054 46                ORL     A,@R0
+0055 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 57
+0056 E500        E     MOV     A,Data
+0058 6007              JZ      ?C0006
+                                           ; SOURCE LINE # 58
+005A E4                CLR     A
+005B FD                MOV     R5,A
+005C 7F01              MOV     R7,#01H
+005E 120000      E     LCALL   _RTDSetByte
+0061         ?C0006:
+                                           ; SOURCE LINE # 60
+0061 E500        E     MOV     A,Data
+0063 5460              ANL     A,#060H
+0065 6004              JZ      ?C0007
+0067 7800        R     MOV     R0,#LOW ucSyncErrorCnt
+0069 06                INC     @R0
+006A 06                INC     @R0
+006B         ?C0007:
+                                           ; SOURCE LINE # 62
+006B E500        E     MOV     A,stGUD1+01H
+006D 5407              ANL     A,#07H
+006F 6003              JZ      $ + 5H
+0071 020000      R     LJMP    ?C0005
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 12  
+
+                                           ; SOURCE LINE # 63
+                                           ; SOURCE LINE # 64
+0074 E500        E     MOV     A,Data
+0076 30E705            JNB     ACC.7,?C0009
+                                           ; SOURCE LINE # 65
+                                           ; SOURCE LINE # 66
+0079 7800        R     MOV     R0,#LOW ucSyncErrorCnt
+007B 06                INC     @R0
+                                           ; SOURCE LINE # 70
+007C 807C              SJMP    ?C0005
+007E         ?C0009:
+                                           ; SOURCE LINE # 72
+                                           ; SOURCE LINE # 76
+007E 7B20              MOV     R3,#020H
+0080 7D7F              MOV     R5,#07FH
+0082 7F3D              MOV     R7,#03DH
+0084 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 77
+0087 7F01              MOV     R7,#01H
+0089 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 78
+008C 7B01              MOV     R3,#01H
+008E 7D01              MOV     R5,#01H
+0090 7F3D              MOV     R7,#03DH
+0092 120000      E     LCALL   _RTDRead
+                                           ; SOURCE LINE # 79
+0095 E500        E     MOV     A,Data
+0097 541F              ANL     A,#01FH
+0099 7800        R     MOV     R0,#LOW ucPE_Max
+009B F6                MOV     @R0,A
+                                           ; SOURCE LINE # 80
+009C D3                SETB    C
+009D 9410              SUBB    A,#010H
+009F 4059              JC      ?C0005
+00A1 7800        E     MOV     R0,#LOW ucPE_Level
+00A3 E6                MOV     A,@R0
+00A4 7054              JNZ     ?C0005
+                                           ; SOURCE LINE # 81
+                                           ; SOURCE LINE # 82
+00A6 7601              MOV     @R0,#01H
+                                           ; SOURCE LINE # 83
+00A8 120000      R     LCALL   Adjust_I_Code
+                                           ; SOURCE LINE # 84
+00AB 7800        R     MOV     R0,#LOW ucI_Code
+00AD E6                MOV     A,@R0
+00AE 30E704            JNB     ACC.7,?C0012
+                                           ; SOURCE LINE # 85
+00B1 7B20              MOV     R3,#020H
+00B3 8002              SJMP    ?C0064
+00B5         ?C0012:
+                                           ; SOURCE LINE # 87
+00B5 E4                CLR     A
+00B6 FB                MOV     R3,A
+00B7         ?C0064:
+00B7 7DDF              MOV     R5,#0DFH
+00B9 7FCA              MOV     R7,#0CAH
+00BB 120000      E     LCALL   _RTDSetBit
+00BE         ?C0013:
+                                           ; SOURCE LINE # 89
+00BE 7800        R     MOV     R0,#LOW ucI_Code
+00C0 E6                MOV     A,@R0
+00C1 547F              ANL     A,#07FH
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 13  
+
+00C3 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 90
+00C4 5407              ANL     A,#07H
+00C6 C4                SWAP    A
+00C7 33                RLC     A
+00C8 54E0              ANL     A,#0E0H
+00CA 441C              ORL     A,#01CH
+00CC FD                MOV     R5,A
+00CD 7FC9              MOV     R7,#0C9H
+00CF 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 91
+00D2 7800        R     MOV     R0,#LOW ucI_Code
+00D4 E6                MOV     A,@R0
+00D5 5418              ANL     A,#018H
+00D7 13                RRC     A
+00D8 13                RRC     A
+00D9 13                RRC     A
+00DA 541F              ANL     A,#01FH
+00DC 4404              ORL     A,#04H
+00DE FB                MOV     R3,A
+00DF 7DFC              MOV     R5,#0FCH
+00E1 7FCA              MOV     R7,#0CAH
+00E3 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 93
+00E6 E4                CLR     A
+00E7 FB                MOV     R3,A
+00E8 7DDF              MOV     R5,#0DFH
+00EA 7F3D              MOV     R7,#03DH
+00EC 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 94
+00EF 7D40              MOV     R5,#040H
+00F1 7F3D              MOV     R7,#03DH
+00F3 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 95
+00F6 E4                CLR     A
+00F7 7800        R     MOV     R0,#LOW ucPE_Max
+00F9 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 96
+                                           ; SOURCE LINE # 99
+                                           ; SOURCE LINE # 100
+                                           ; SOURCE LINE # 101
+00FA         ?C0005:
+                                           ; SOURCE LINE # 103
+00FA 7401              MOV     A,#01H
+00FC C3                CLR     C
+00FD 7800        R     MOV     R0,#LOW ucSyncErrorCnt
+00FF 96                SUBB    A,@R0
+0100 500C              JNC     ?C0014
+                                           ; SOURCE LINE # 104
+                                           ; SOURCE LINE # 105
+0102 120000      E     LCALL   Reset_Mode
+                                           ; SOURCE LINE # 107
+0105 7F02              MOV     R7,#02H
+0107 120000      E     LCALL   _Set_Task
+                                           ; SOURCE LINE # 109
+010A C200        E     CLR     bNotify_Timer0_Int
+                                           ; SOURCE LINE # 111
+010C D3                SETB    C
+010D 22                RET     
+                                           ; SOURCE LINE # 113
+010E         ?C0014:
+                                           ; SOURCE LINE # 115
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 14  
+
+010E 30000C      E     JNB     bNotify_Timer0_Int,?C0001
+0111 7800        E     MOV     R0,#LOW ucModeCnt
+0113 E6                MOV     A,@R0
+0114 B40206            CJNE    A,#02H,?C0001
+                                           ; SOURCE LINE # 116
+                                           ; SOURCE LINE # 117
+0117 7800        R     MOV     R0,#LOW ucSyncErrorCnt
+0119 E6                MOV     A,@R0
+011A 6001              JZ      ?C0001
+011C 16                DEC     @R0
+                                           ; SOURCE LINE # 119
+                                           ; SOURCE LINE # 120
+011D         ?C0001:
+                                           ; SOURCE LINE # 121
+011D C3                CLR     C
+                                           ; SOURCE LINE # 122
+011E         ?C0015:
+011E 22                RET     
+011F         L?0071:
+011F 7B01              MOV     R3,#01H
+0121 7D01              MOV     R5,#01H
+0123 120000      E     LCALL   _RTDRead
+0126 E500        E     MOV     A,Data
+0128 22                RET     
+             ; FUNCTION Frame_Sync_Detector (END)
+
+             ; FUNCTION AbortSync (BEGIN)
+                                           ; SOURCE LINE # 127
+                                           ; SOURCE LINE # 128
+                                           ; SOURCE LINE # 129
+0000 750005      E     MOV     Data,#05H
+                                           ; SOURCE LINE # 130
+0003 E4                CLR     A
+0004 F500        E     MOV     Data+01H,A
+                                           ; SOURCE LINE # 131
+0006 750022      E     MOV     Data+02H,#022H
+                                           ; SOURCE LINE # 132
+0009 7800        E     MOV     R0,#LOW usDH_Total+01H
+000B E6                MOV     A,@R0
+000C F500        E     MOV     Data+03H,A
+                                           ; SOURCE LINE # 133
+000E 18                DEC     R0
+000F E6                MOV     A,@R0
+0010 F500        E     MOV     Data+04H,A
+                                           ; SOURCE LINE # 134
+0012 E4                CLR     A
+0013 F500        E     MOV     Data+05H,A
+                                           ; SOURCE LINE # 135
+0015 7F00        E     MOV     R7,#LOW Data
+0017 120000      E     LCALL   _RTDWrite
+                                           ; SOURCE LINE # 137
+001A E4                CLR     A
+001B FB                MOV     R3,A
+001C 7D07              MOV     R5,#07H
+001E 7F2E              MOV     R7,#02EH
+0020 020000      E     LJMP    _RTDSetBit
+             ; FUNCTION AbortSync (END)
+
+             ; FUNCTION _TestSync (BEGIN)
+                                           ; SOURCE LINE # 140
+0000 8E00        R     MOV     offset,R6
+0002 8F00        R     MOV     offset+01H,R7
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 15  
+
+                                           ; SOURCE LINE # 141
+                                           ; SOURCE LINE # 143
+0004 AD00        R     MOV     R5,offset+01H
+0006 7F9A              MOV     R7,#09AH
+0008 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 144
+000B E500        R     MOV     A,offset
+000D 540F              ANL     A,#0FH
+000F 4420              ORL     A,#020H
+0011 FB                MOV     R3,A
+0012 7DF0              MOV     R5,#0F0H
+0014 7F9B              MOV     R7,#09BH
+0016 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 148
+0019 7F08              MOV     R7,#08H
+001B 120000      E     LCALL   _Wait_For_Event
+                                           ; SOURCE LINE # 151
+001E E4                CLR     A
+001F FD                MOV     R5,A
+0020 7F01              MOV     R7,#01H
+0022 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 153
+0025 7F08              MOV     R7,#08H
+0027 120000      E     LCALL   _Wait_For_Event
+                                           ; SOURCE LINE # 162
+002A 7F08              MOV     R7,#08H
+002C 120000      E     LCALL   _Wait_For_Event
+                                           ; SOURCE LINE # 167
+002F 7B01              MOV     R3,#01H
+0031 7D01              MOV     R5,#01H
+0033 7F01              MOV     R7,#01H
+0035 120000      E     LCALL   _RTDRead
+                                           ; SOURCE LINE # 170
+0038 E500        E     MOV     A,Data
+003A 6007              JZ      ?C0019
+                                           ; SOURCE LINE # 171
+003C E4                CLR     A
+003D FD                MOV     R5,A
+003E 7F01              MOV     R7,#01H
+0040 120000      E     LCALL   _RTDSetByte
+0043         ?C0019:
+                                           ; SOURCE LINE # 174
+0043 E500        E     MOV     A,Data
+0045 5460              ANL     A,#060H
+0047 6006              JZ      ?C0020
+                                           ; SOURCE LINE # 175
+                                           ; SOURCE LINE # 176
+0049 120000      R     LCALL   AbortSync
+                                           ; SOURCE LINE # 177
+004C 7F01              MOV     R7,#01H
+004E 22                RET     
+                                           ; SOURCE LINE # 178
+004F         ?C0020:
+                                           ; SOURCE LINE # 180
+004F 530003      E     ANL     Data,#03H
+                                           ; SOURCE LINE # 182
+0052 7F00              MOV     R7,#00H
+                                           ; SOURCE LINE # 183
+0054         ?C0021:
+0054 22                RET     
+             ; FUNCTION _TestSync (END)
+
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 16  
+
+             ; FUNCTION Frame_Sync (BEGIN)
+                                           ; SOURCE LINE # 192
+                                           ; SOURCE LINE # 193
+                                           ; SOURCE LINE # 195
+0000 E4                CLR     A
+0001 7800        R     MOV     R0,#LOW ucTemp
+0003 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 203
+0004 FB                MOV     R3,A
+0005 7D02              MOV     R5,#02H
+0007 7F9A              MOV     R7,#09AH
+0009 120000      E     LCALL   _RTDRead
+                                           ; SOURCE LINE # 204
+000C E500        E     MOV     A,Data+01H
+000E 540F              ANL     A,#0FH
+0010 F500        E     MOV     Data+02H,A
+                                           ; SOURCE LINE # 205
+0012 850000      E     MOV     Data+03H,Data
+                                           ; SOURCE LINE # 206
+0015 7800        R     MOV     R0,#LOW usBuffer
+0017 F6                MOV     @R0,A
+0018 08                INC     R0
+0019 A600        E     MOV     @R0,Data+03H
+                                           ; SOURCE LINE # 208
+001B 08                INC     R0
+001C A600        E     MOV     @R0,Data+02H
+001E 08                INC     R0
+001F A600        E     MOV     @R0,Data+03H
+                                           ; SOURCE LINE # 211
+0021 E500        E     MOV     A,stGUD1+01H
+0023 5407              ANL     A,#07H
+0025 6007              JZ      ?C0024
+0027 6401              XRL     A,#01H
+0029 6003              JZ      $ + 5H
+002B 020000      R     LJMP    ?C0022
+                                           ; SOURCE LINE # 212
+002E         ?C0024:
+                                           ; SOURCE LINE # 215
+002E C3                CLR     C
+002F 7800        R     MOV     R0,#LOW usBuffer+01H
+0031 E6                MOV     A,@R0
+0032 948C              SUBB    A,#08CH
+0034 18                DEC     R0
+0035 E6                MOV     A,@R0
+0036 9406              SUBB    A,#06H
+0038 506C              JNC     ?C0025
+                                           ; SOURCE LINE # 217
+                                           ; SOURCE LINE # 218
+003A E4                CLR     A
+003B FB                MOV     R3,A
+003C 7D02              MOV     R5,#02H
+003E 7FD1              MOV     R7,#0D1H
+0040 120000      E     LCALL   _RTDRead
+                                           ; SOURCE LINE # 219
+0043 E500        E     MOV     A,Data
+0045 04                INC     A
+0046 FD                MOV     R5,A
+0047 7FD1              MOV     R7,#0D1H
+0049 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 220
+004C AD00        E     MOV     R5,Data+01H
+004E 7FD2              MOV     R7,#0D2H
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 17  
+
+0050 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 227
+0053 E500        E     MOV     A,Data
+0055 2402              ADD     A,#02H
+0057 FF                MOV     R7,A
+0058 E4                CLR     A
+0059 33                RLC     A
+005A FE                MOV     R6,A
+005B E4                CLR     A
+005C FC                MOV     R4,A
+005D FD                MOV     R5,A
+005E C004              PUSH    AR4
+0060 A905              MOV     R1,AR5
+0062 AA06              MOV     R2,AR6
+0064 AB07              MOV     R3,AR7
+0066 7800        R     MOV     R0,#LOW usBuffer
+0068 E6                MOV     A,@R0
+0069 FE                MOV     R6,A
+006A 08                INC     R0
+006B E6                MOV     A,@R0
+006C FF                MOV     R7,A
+006D E4                CLR     A
+006E D000              POP     AR0
+0070 120000      E     LCALL   ?C?LMUL
+0073 E4                CLR     A
+0074 2F                ADD     A,R7
+0075 FF                MOV     R7,A
+0076 EE                MOV     A,R6
+0077 3480              ADDC    A,#080H
+0079 FE                MOV     R6,A
+007A E4                CLR     A
+007B 3D                ADDC    A,R5
+007C FD                MOV     R5,A
+007D E4                CLR     A
+007E 3C                ADDC    A,R4
+007F FC                MOV     R4,A
+0080 C006              PUSH    AR6
+0082 C007              PUSH    AR7
+0084 E500        E     MOV     A,Data
+0086 2403              ADD     A,#03H
+0088 FF                MOV     R7,A
+0089 E4                CLR     A
+008A 33                RLC     A
+008B AB07              MOV     R3,AR7
+008D FA                MOV     R2,A
+008E E4                CLR     A
+008F F9                MOV     R1,A
+0090 F8                MOV     R0,A
+0091 D007              POP     AR7
+0093 D006              POP     AR6
+0095 120000      E     LCALL   ?C?ULDIV
+0098 7800        R     MOV     R0,#LOW usBuffer
+009A EE                MOV     A,R6
+009B F6                MOV     @R0,A
+009C 08                INC     R0
+009D EF                MOV     A,R7
+009E F6                MOV     @R0,A
+                                           ; SOURCE LINE # 229
+009F 08                INC     R0
+00A0 A606              MOV     @R0,AR6
+00A2 08                INC     R0
+00A3 F6                MOV     @R0,A
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 18  
+
+                                           ; SOURCE LINE # 231
+00A4 8088              SJMP    ?C0024
+00A6         ?C0025:
+                                           ; SOURCE LINE # 251
+00A6 7480              MOV     A,#080H
+00A8 120000      R     LCALL   L?0072
+                                           ; SOURCE LINE # 252
+00AB         ?C0022:
+                                           ; SOURCE LINE # 254
+00AB 120000      R     LCALL   L?0067
+00AE 7800        R     MOV     R0,#LOW usBuffer
+00B0 A606              MOV     @R0,AR6
+00B2 08                INC     R0
+00B3 A607              MOV     @R0,AR7
+                                           ; SOURCE LINE # 257
+00B5 E4                CLR     A
+00B6 7800        R     MOV     R0,#LOW ucFine
+00B8 F6                MOV     @R0,A
+00B9         ?C0026:
+                                           ; SOURCE LINE # 258
+                                           ; SOURCE LINE # 259
+00B9 120000      R     LCALL   L?0067
+00BC 120000      R     LCALL   _TestSync
+00BF EF                MOV     A,R7
+00C0 6003              JZ      ?C0029
+00C2 7F02              MOV     R7,#02H
+00C4 22                RET     
+00C5         ?C0029:
+                                           ; SOURCE LINE # 261
+00C5 E500        E     MOV     A,Data
+00C7 5403              ANL     A,#03H
+00C9 FF                MOV     R7,A
+00CA 6026              JZ      ?C0031
+                                           ; SOURCE LINE # 262
+                                           ; SOURCE LINE # 263
+00CC E500        E     MOV     A,Data
+00CE 7800        R     MOV     R0,#LOW usDelta+01H
+00D0 30E10B            JNB     ACC.1,?C0032
+00D3 E6                MOV     A,@R0
+00D4 24E0              ADD     A,#0E0H
+00D6 FD                MOV     R5,A
+00D7 18                DEC     R0
+00D8 E6                MOV     A,@R0
+00D9 34FF              ADDC    A,#0FFH
+00DB FC                MOV     R4,A
+00DC 8008              SJMP    ?C0033
+00DE         ?C0032:
+00DE E6                MOV     A,@R0
+00DF 2420              ADD     A,#020H
+00E1 FD                MOV     R5,A
+00E2 18                DEC     R0
+00E3 E4                CLR     A
+00E4 36                ADDC    A,@R0
+00E5 FC                MOV     R4,A
+00E6         ?C0033:
+00E6 7800        R     MOV     R0,#LOW usDelta
+00E8 A604              MOV     @R0,AR4
+00EA 08                INC     R0
+00EB A605              MOV     @R0,AR5
+                                           ; SOURCE LINE # 264
+00ED 7800        R     MOV     R0,#LOW ucTemp
+00EF 06                INC     @R0
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 19  
+
+                                           ; SOURCE LINE # 265
+00F0 8003              SJMP    ?C0028
+00F2         ?C0031:
+                                           ; SOURCE LINE # 266
+00F2 EF                MOV     A,R7
+00F3 6009              JZ      ?C0027
+                                           ; SOURCE LINE # 267
+                                           ; SOURCE LINE # 268
+00F5         ?C0028:
+00F5 7800        R     MOV     R0,#LOW ucFine
+00F7 06                INC     @R0
+00F8 E6                MOV     A,@R0
+00F9 C3                CLR     C
+00FA 940E              SUBB    A,#0EH
+00FC 40BB              JC      ?C0026
+00FE         ?C0027:
+                                           ; SOURCE LINE # 270
+00FE E500        E     MOV     A,Data
+0100 5403              ANL     A,#03H
+0102 6003              JZ      ?C0036
+                                           ; SOURCE LINE # 271
+0104 7F01              MOV     R7,#01H
+0106 22                RET     
+0107         ?C0036:
+                                           ; SOURCE LINE # 273
+0107 120000      R     LCALL   L?0068
+010A C3                CLR     C
+010B 7800        R     MOV     R0,#LOW usBuffer+01H
+010D 96                SUBB    A,@R0
+010E EE                MOV     A,R6
+010F 18                DEC     R0
+0110 96                SUBB    A,@R0
+0111 5020              JNC     ?C0038
+                                           ; SOURCE LINE # 274
+                                           ; SOURCE LINE # 276
+0113 EF                MOV     A,R7
+0114 24FC              ADD     A,#0FCH
+0116 FF                MOV     R7,A
+0117 EE                MOV     A,R6
+0118 34FF              ADDC    A,#0FFH
+011A FE                MOV     R6,A
+011B 120000      R     LCALL   _TestSync
+011E EF                MOV     A,R7
+011F 6003              JZ      ?C0039
+0121 7F02              MOV     R7,#02H
+0123 22                RET     
+0124         ?C0039:
+                                           ; SOURCE LINE # 278
+0124 E500        E     MOV     A,Data
+0126 5403              ANL     A,#03H
+0128 6002              JZ      ?C0040
+                                           ; SOURCE LINE # 279
+012A 8020              SJMP    ?C0065
+012C         ?C0040:
+                                           ; SOURCE LINE # 281
+012C 74FE              MOV     A,#0FEH
+012E 120000      R     LCALL   L?0072
+                                           ; SOURCE LINE # 283
+0131 802B              SJMP    ?C0037
+0133         ?C0038:
+                                           ; SOURCE LINE # 285
+                                           ; SOURCE LINE # 287
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 20  
+
+0133 7800        R     MOV     R0,#LOW usDelta+01H
+0135 E6                MOV     A,@R0
+0136 2404              ADD     A,#04H
+0138 FF                MOV     R7,A
+0139 18                DEC     R0
+013A E4                CLR     A
+013B 36                ADDC    A,@R0
+013C FE                MOV     R6,A
+013D 120000      R     LCALL   _TestSync
+0140 EF                MOV     A,R7
+0141 6003              JZ      ?C0043
+0143 7F02              MOV     R7,#02H
+0145 22                RET     
+0146         ?C0043:
+                                           ; SOURCE LINE # 289
+0146 E500        E     MOV     A,Data
+0148 5403              ANL     A,#03H
+014A 6008              JZ      ?C0044
+                                           ; SOURCE LINE # 290
+014C         ?C0065:
+014C 120000      R     LCALL   L?0068
+014F 120000      R     LCALL   _TestSync
+0152 800A              SJMP    ?C0037
+0154         ?C0044:
+                                           ; SOURCE LINE # 292
+0154 7800        R     MOV     R0,#LOW usDelta+01H
+0156 7402              MOV     A,#02H
+0158 26                ADD     A,@R0
+0159 F6                MOV     @R0,A
+015A 18                DEC     R0
+015B E4                CLR     A
+015C 36                ADDC    A,@R0
+015D F6                MOV     @R0,A
+                                           ; SOURCE LINE # 293
+015E         ?C0037:
+                                           ; SOURCE LINE # 419
+015E 7B60              MOV     R3,#060H
+0160 7D0F              MOV     R5,#0FH
+0162 7F99              MOV     R7,#099H
+0164 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 420
+0167 900000      E     MOV     DPTR,#DCLK_OFFSET+06H
+016A 120000      R     LCALL   L?0069
+016D FE                MOV     R6,A
+016E 120000      R     LCALL   _TestSync
+0171 EF                MOV     A,R7
+0172 6003              JZ      ?C0046
+                                           ; SOURCE LINE # 421
+0174 7F02              MOV     R7,#02H
+0176 22                RET     
+0177         ?C0046:
+                                           ; SOURCE LINE # 423
+0177 E500        E     MOV     A,Data
+0179 5403              ANL     A,#03H
+017B 6033              JZ      ?C0047
+                                           ; SOURCE LINE # 424
+                                           ; SOURCE LINE # 425
+017D E500        E     MOV     A,Data
+017F 900000      E     MOV     DPTR,#DCLK_OFFSET+06H
+0182 30E10C            JNB     ACC.1,?C0049
+0185 120000      R     LCALL   L?0069
+0188 CF                XCH     A,R7
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 21  
+
+0189 24FF              ADD     A,#0FFH
+018B CF                XCH     A,R7
+018C 34FF              ADDC    A,#0FFH
+018E FE                MOV     R6,A
+018F 800A              SJMP    ?C0050
+0191         ?C0049:
+0191 120000      R     LCALL   L?0070
+0194 CF                XCH     A,R7
+0195 2401              ADD     A,#01H
+0197 CF                XCH     A,R7
+0198 3400              ADDC    A,#00H
+019A FE                MOV     R6,A
+019B         ?C0050:
+019B 120000      R     LCALL   _TestSync
+019E EF                MOV     A,R7
+019F 6003              JZ      ?C0048
+                                           ; SOURCE LINE # 427
+01A1 7F02              MOV     R7,#02H
+01A3 22                RET     
+01A4         ?C0048:
+                                           ; SOURCE LINE # 429
+                                           ; SOURCE LINE # 430
+01A4 E500        E     MOV     A,Data
+01A6 5403              ANL     A,#03H
+01A8 6003              JZ      ?C0052
+                                           ; SOURCE LINE # 431
+01AA 7F01              MOV     R7,#01H
+01AC 22                RET     
+01AD         ?C0052:
+                                           ; SOURCE LINE # 433
+01AD 7F00              MOV     R7,#00H
+01AF 22                RET     
+                                           ; SOURCE LINE # 434
+                                           ; SOURCE LINE # 436
+01B0         ?C0047:
+                                           ; SOURCE LINE # 440
+01B0 7F00              MOV     R7,#00H
+                                           ; SOURCE LINE # 443
+01B2         ?C0030:
+01B2 22                RET     
+             ; FUNCTION Frame_Sync (END)
+
+             ; FUNCTION Adjust_I_Code (BEGIN)
+                                           ; SOURCE LINE # 448
+                                           ; SOURCE LINE # 449
+                                           ; SOURCE LINE # 451
+0000 7800        E     MOV     R0,#LOW usHsync
+0002 E6                MOV     A,@R0
+0003 FC                MOV     R4,A
+0004 08                INC     R0
+0005 E6                MOV     A,@R0
+0006 FD                MOV     R5,A
+0007 7E60              MOV     R6,#060H
+0009 7F00              MOV     R7,#00H
+000B 120000      E     LCALL   ?C?UIDIV
+000E 8E00        E     MOV     Data,R6
+0010 8F00        E     MOV     Data+01H,R7
+                                           ; SOURCE LINE # 455
+0012 7800        R     MOV     R0,#LOW ucI_Code
+0014 760E              MOV     @R0,#0EH
+                                           ; SOURCE LINE # 456
+0016 7800        E     MOV     R0,#LOW ucCE_Value
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 22  
+
+0018 E6                MOV     A,@R0
+0019 FF                MOV     R7,A
+001A E4                CLR     A
+001B FC                MOV     R4,A
+001C FD                MOV     R5,A
+001D FE                MOV     R6,A
+001E 7BF8              MOV     R3,#0F8H
+0020 7A30              MOV     R2,#030H
+0022 7906              MOV     R1,#06H
+0024 7803              MOV     R0,#03H
+0026 120000      E     LCALL   ?C?LMUL
+0029 C006              PUSH    AR6
+002B C007              PUSH    AR7
+002D AE00        E     MOV     R6,Data
+002F AF00        E     MOV     R7,Data+01H
+0031 AB07              MOV     R3,AR7
+0033 AA06              MOV     R2,AR6
+0035 E4                CLR     A
+0036 F9                MOV     R1,A
+0037 F8                MOV     R0,A
+0038 D007              POP     AR7
+003A D006              POP     AR6
+003C 120000      E     LCALL   ?C?ULDIV
+003F 7814              MOV     R0,#014H
+0041 120000      E     LCALL   ?C?ULSHR
+0044 8F00        E     MOV     Data+02H,R7
+                                           ; SOURCE LINE # 457
+0046 750004      E     MOV     Data+03H,#04H
+0049         ?C0054:
+                                           ; SOURCE LINE # 460
+                                           ; SOURCE LINE # 461
+                                           ; SOURCE LINE # 463
+0049 E500        E     MOV     A,Data+02H
+004B D3                SETB    C
+004C 9500        E     SUBB    A,Data+03H
+004E 4011              JC      ?C0056
+                                           ; SOURCE LINE # 464
+                                           ; SOURCE LINE # 465
+0050 E500        E     MOV     A,Data+02H
+0052 13                RRC     A
+0053 F500        E     MOV     Data+02H,A
+                                           ; SOURCE LINE # 466
+0055 7800        R     MOV     R0,#LOW ucI_Code
+0057 16                DEC     @R0
+                                           ; SOURCE LINE # 468
+0058 E500        E     MOV     A,Data+02H
+005A D3                SETB    C
+005B 9500        E     SUBB    A,Data+03H
+005D 50EA              JNC     ?C0054
+                                           ; SOURCE LINE # 469
+005F 801E              SJMP    ?C0055
+                                           ; SOURCE LINE # 470
+0061         ?C0056:
+                                           ; SOURCE LINE # 472
+                                           ; SOURCE LINE # 473
+0061 E500        E     MOV     A,Data+02H
+0063 25E0              ADD     A,ACC
+0065 FF                MOV     R7,A
+0066 E4                CLR     A
+0067 33                RLC     A
+0068 FE                MOV     R6,A
+0069 D3                SETB    C
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 23  
+
+006A EF                MOV     A,R7
+006B 9500        E     SUBB    A,Data+03H
+006D 7480              MOV     A,#080H
+006F F8                MOV     R0,A
+0070 6E                XRL     A,R6
+0071 98                SUBB    A,R0
+0072 500B              JNC     ?C0055
+                                           ; SOURCE LINE # 474
+0074         ?C0059:
+                                           ; SOURCE LINE # 476
+                                           ; SOURCE LINE # 477
+0074 E500        E     MOV     A,Data+02H
+0076 25E0              ADD     A,ACC
+0078 F500        E     MOV     Data+02H,A
+                                           ; SOURCE LINE # 478
+007A 7800        R     MOV     R0,#LOW ucI_Code
+007C 06                INC     @R0
+                                           ; SOURCE LINE # 479
+                                           ; SOURCE LINE # 480
+                                           ; SOURCE LINE # 481
+007D 80CA              SJMP    ?C0054
+007F         ?C0055:
+                                           ; SOURCE LINE # 485
+007F AF00        E     MOV     R7,Data+02H
+0081 7E00              MOV     R6,#00H
+0083 7C00              MOV     R4,#00H
+0085 7D03              MOV     R5,#03H
+0087 120000      E     LCALL   ?C?IMUL
+008A EE                MOV     A,R6
+008B C3                CLR     C
+008C 13                RRC     A
+008D EF                MOV     A,R7
+008E 13                RRC     A
+008F D3                SETB    C
+0090 9500        E     SUBB    A,Data+03H
+0092 5006              JNC     ?C0063
+                                           ; SOURCE LINE # 486
+                                           ; SOURCE LINE # 487
+0094 7800        R     MOV     R0,#LOW ucI_Code
+0096 E6                MOV     A,@R0
+0097 4480              ORL     A,#080H
+0099 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 489
+                                           ; SOURCE LINE # 491
+                                           ; SOURCE LINE # 493
+                                           ; SOURCE LINE # 496
+009A         ?C0063:
+009A 22                RET     
+             ; FUNCTION Adjust_I_Code (END)
+
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 24  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+ucI_Code . . . . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0000H  1
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+bNotify_Timer0_Int . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_Set_Task. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+ucModeCnt. . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+Frame_Sync_Detector. . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_RTDSetByte. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_RTDSetBit . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 25  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+AbortSync. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_TestSync. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  offset . . . . . . . . . . . . . . .  AUTO     DATA   U_INT    0000H  2
+ucP_Corr . . . . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0001H  1
+ucSyncErrorCnt . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0002H  1
+bStable. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+ucCE_Value . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+DCLK_OFFSET. . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  16
+_RTDRead . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+ucPE_Level . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_RTDWrite. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bPower_Status. . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+usDH_Total . . . . . . . . . . . . . .  EXTERN   IDATA  U_INT    -----  2
+ucMode_Curr. . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+ucStatus . . . . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0003H  1
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+C51 COMPILER V7.06   FRAME_SYNC                                                            11/21/2005 13:47:25 PAGE 26  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+_Wait_For_Event. . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_Delay_Xms . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Reset_Mode . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Frame_Sync . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  usBuffer . . . . . . . . . . . . . .  AUTO     IDATA  U_INT    0000H  2
+  usDelta. . . . . . . . . . . . . . .  AUTO     IDATA  U_INT    0002H  2
+  ucFine . . . . . . . . . . . . . . .  AUTO     IDATA  U_CHAR   0004H  1
+  ucTemp . . . . . . . . . . . . . . .  AUTO     IDATA  U_CHAR   0005H  1
+bFrameSync . . . . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+usHsync. . . . . . . . . . . . . . . .  EXTERN   IDATA  U_INT    -----  2
+Adjust_I_Code. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+ucPE_Max . . . . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0004H  1
+stGUD1 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  8
+Data . . . . . . . . . . . . . . . . .  EXTERN   DATA   ARRAY    -----  16
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1035    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       2
+   IDATA SIZE       =      5       6
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

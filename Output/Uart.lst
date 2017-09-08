@@ -1,0 +1,702 @@
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE UART
+OBJECT MODULE PLACED IN .\Output\Uart.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Uart.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PRINT(
+                    -.\Output\Uart.lst) PREPRINT(.\Output\Uart.i) OBJECT(.\Output\Uart.obj)
+
+stmt level    source
+
+   1          //**************************************程式更新步驟
+   2          /*
+   3          1.Lcd_main.c  <add>  #include "Uart.h"
+   4          
+   5          2.Lcd_main.c  <add>  after main()~ UART_Initialize(); ~Firmware_Init();
+   6          
+   7          3.Lcd_main.c  <add>  ISP_Check_Sum();~ PutStringToScr("\nMain Loop.."); ~Delay_Xms(250);
+   8          
+   9          4.Lcd_main.c  <add>  if (bNotify_Timer0_Int) //20ms start~
+  10                  {            
+  11          
+  12                          if(fTest==1)
+  13                          {
+  14                          fTest=0;
+  15                          DebugModeLoop();
+  16                          }
+  17          5.Lcd_func.h  <add> after unsigned char idata ucH_Min_Margin  = 0;
+  18                  unsigned char   idata   UartNum        = 0;
+  19                  unsigned char idata  UartData[4];       // data array for RTD/I2C R/W
+  20                  
+  21          
+  22          6.Lcd_func.h  <add> after extern unsigned char idata  ucH_Min_Margin;
+  23                  extern unsigned char   idata   UartNum;
+  24                  extern unsigned char   idata   UartData[4];     
+  25                  
+  26          
+  27          //**************************************Test
+  28          2.lcd_osd.h <add>  extern void OSD_Clear(unsigned char row_start, unsigned char height, unsigned char col_
+             -start, unsigned char width);
+  29          
+  30          */
+  31          //**************************************
+  32          
+  33          #include "Header\Uart.h"
+  34          #include "reg52.h"
+  35          //#include "w78e365.h"
+  36          #include "Header\main_def.h"
+  37          #include "Header\Lcd_func.h"
+  38          
+  39          #include "Header\osd.h"
+  40          #include "Header\access.h"
+  41          #include "Header\lcd_osd.h"
+  42          //#include "PCB\qa_pcb.h"
+  43          /*
+  44          #include "Header\Uart.h"
+  45          #include "reg52.h"
+  46          #include "intrins.h"
+  47          
+  48          #include "Header\MAIN_DEF.H"
+  49          #include "Header\CONFIG.H"
+  50          #include "Header\ACCESS.H"
+  51          #include "Header\OSD.H"
+  52          #include "Header\LCD_COEF.H"
+  53          #include "Header\LCD_MAIN.H"
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 2   
+
+  54          #include "Header\LCD_AUTO.H"
+  55          #include "Header\LCD_FUNC.H"
+  56          */
+  57          //*******************************************************************
+  58          #if(RS232_DEBUG)
+              //unsigned char   idata   UartNum        = 0;
+              //unsigned char idata  UartData[4];     // data array for RTD/I2C R/W
+              
+              unsigned char bdata byflag20 _at_ 0x20;
+              sbit    fTest = byflag20 ^ 0;
+              
+              unsigned char bdata byflag21 _at_ 0x21;
+              sbit    fUart_Start = byflag21 ^ 0;
+              sbit    fUartStart   = byflag21 ^ 1;
+              sbit    fDebugModeEnable        = byflag21 ^ 2;
+              //*******************************************************************
+              
+              void UART_Initialize(void)
+              {
+                      EA    = 0;
+              //UartNum        = 0;
+                      //CHPENR  = 0x87;
+                      //CHPENR  = 0x59;
+                      //CHPCON |= 0x10;               // enable on-chip aux-ram
+                      //CHPENR  = 0x00;
+              
+                      SCON  = 0x50;
+                      
+                      ES    = 1;
+                      PS    = 1;
+                      
+                      T2CON = 0x34;
+              //      RCAP2L = 0xb0;          //65536 - (crystal / baud * 32))
+                                                              // crystal = 24.576 MHZ
+                                                              // 9600 bps
+                      RCAP2L = 0xd8;                                  
+                      RCAP2H = 0xff;          
+                                                              
+                      EA  = 1;
+              }
+              // *************************************************************** //
+              void UART(void) interrupt 4 using 1
+              {
+                      ES = 0; // disable uart interrupt.
+                      if (TI)
+                  {
+                      TI = 0;
+                      }
+                  else if (RI)
+                  {
+                  if(fUartStart==0)
+                      {
+                      //m_RXBuffer[UartNum] = SBUF;
+                      UartData[0] = SBUF;
+                      
+                      switch(UartData[0])
+                              {
+                              case 0x5a: //進入debug
+                              case 0x5b://進入debug
+                              case 0x5c://進入debug
+                              case 0x5d://進入debug
+                              
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 3   
+
+                                      UartNum=1;
+                                      fUartStart=1;
+                                      break;
+                              default :
+                                      fUartStart=0;
+                                      break;
+                              }
+                                              
+                      }
+                  else
+                      {
+                      if(UartNum<=4)
+                              {
+                              UartData[UartNum] = SBUF;
+                              UartNum++;
+                              if(UartNum>4)
+                                      {
+                                      fTest=1;
+                                      fUartStart=0;
+                                      }
+                              }
+                      }
+                      //              }
+                      //      }
+                              RI = 0;
+                      }
+                      ES = 1; // enable uart interrupt.
+              }
+              /*
+              {
+                      ES = 0; // disable uart interrupt.
+                      if (TI)
+                  {
+                      TI = 0;
+                      }
+                  else if (RI)
+                  {
+                  if(fUartStart==0)
+                      {
+                              UartData[0] = SBUF;
+                              //fTest=1;//debug
+                              switch(UartData[0])
+                                      {
+                                      case 0x5a: //進入debug
+                                      case 0x5b://進入debug
+                                      case 0x5c://進入debug
+                                      case 0x5d://進入debug
+                              
+                                              UartNum=1;
+                                              fUartStart=1;
+                                      break;
+                                      default :
+                                              fUartStart=0;
+                                      break;  
+                                      }
+                                              
+                      }
+                  else
+                      {
+                      if(UartNum<=4)
+                              {
+                              UartData[UartNum] = SBUF;
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 4   
+
+                              UartNum++;
+                              if(UartNum>4)
+                                      {
+                                      fTest=1;
+                                      //UartNum=0;
+                                      fUartStart=0;
+                                      }
+                              }
+                      }
+                      
+                              RI = 0;
+                      }
+                      ES = 1; // enable uart interrupt.
+              }
+              */
+              // *************************************************************** //
+              /*
+              void UART(void) interrupt 4 using 1
+              {
+                      ES = 0; // disable uart interrupt.
+                      if (TI)
+                  {
+                      TI = 0;
+                      }
+                  else if (RI)
+                  {
+                      //      const unsigned char incWRXIndex = m_WRXIndex + 1;
+                      //      if (incWRXIndex != m_RRXIndex)
+                      //      {
+                      //              if ((m_RRXIndex != -1) || (incWRXIndex < BUFFER_LEN/2))
+                      //              {       
+                      //                      m_WRXIndex = incWRXIndex & (BUFFER_LEN/2-1);
+                      //                      m_RXBuffer[m_WRXIndex] = SBUF;
+                                              ATest=SBUF;
+                                              fUart_Start=1;
+                      //                      DispOSD_TestMessage();
+                      //              }
+                      //      }
+                              RI = 0;
+                      }
+                      ES = 1; // enable uart interrupt.
+              }
+              */
+              // *************************************************************** //不知為何需加這段程式才能工作
+              const unsigned char PutStringToScr(const unsigned char code* pstr)
+              {
+                      unsigned char idata StrIndex;
+                      for (StrIndex=0x00; *(pstr+StrIndex)!='\0'; StrIndex++)
+                      {
+                              if (*(pstr+StrIndex) == '\n')
+                                      PutCharToScr('\r');
+                              PutCharToScr(*(pstr+StrIndex));
+                      }
+                      return StrIndex;
+              }
+              
+              // *************************************************************** //
+              void PutCharToScr(const unsigned char ch)
+              {
+                      ES = 0;
+              
+                      SBUF = ch; // transfer UART
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 5   
+
+              
+                      while (!TI)
+                      {
+                              // wait buffer completing.
+                      }
+              
+                      ES = 1;
+                      
+                      while (TI)
+                      {
+                              // wait transfer completing.
+                      }
+              }
+              // *************************************************************** //
+              void HexToBin(unsigned int HexData)
+              {
+                      unsigned long a;
+                      //HexData=0x1234;
+                       Data[12]=(HexData)&0x0F;
+                       Data[13]=(HexData>>4)&0x0F;
+                       Data[14]=(HexData>>8)&0x0F;
+                       Data[15]=(HexData>>12)&0x0F;
+                       a=(Data[14]*256)+(Data[13]*16)+Data[12];
+                       Data[0]=a%10;
+                       Data[1]=(a/10)%10;
+                       Data[2]=(a/100)%10;
+                       Data[3]=(a/1000)%10;
+                       Data[4]=(a/10000)%10;
+                       Data[5]=(a/100000)%10;
+              }
+              
+              void DispOSD_TestMessage(void)
+              {
+              
+                      int a=0,b=0;
+                      //RTDCodeW(OSD_Reset);
+                       //RTDCodeW(OSD_Enable);
+                  //****************************************
+                  Data[0]     = 5;
+                  Data[1]     = Y_INC;
+                  Data[2]     = OSD_ROW_90;
+                  Data[3]     = 0xaf;
+                  Data[4]     = 0x0c;
+                  Data[5]     = 5;
+                  Data[6]     = N_INC;
+                  Data[7]     = OSD_DATA_92;
+                  Data[8]     = 0x30;//stGUD1.OSD_POSV; alantest
+                  Data[9]     = 0x30;//stGUD1.OSD_POSH; alantest
+                  Data[10]    = 0;
+                  RTDWrite(Data);  
+                  //**************************************** Set_osd_position
+                  OSD_Clear(2, 10, 2, 24);
+                  OSD_Window(3, 0, 14, 0, 29, OSD_WINDOW_ENABLE | OSD_WINDOW_SHADOWING, COLOR_YELLOW);  // Main OSD wind
+             -ow
+                 //**************************************** Set OSD Window 
+                 
+                #define TestFunction  0
+                #if (TestFunction == 1)
+                //*********************************
+                 for(a=0;a<15;a++)
+                      {
+                       bRTD_SCSB   = 0;  
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 6   
+
+                      RTDSendAddr(OSD_ROW_90, 0, Y_INC);  
+                      RTDSendByte(0x80|a);
+                      RTDSendByte(2);
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                 
+                      bRTD_SCSB   = 0; 
+                      RTDSendAddr(OSD_DATA_92, 0, N_INC);
+                      for(b=0;b<=15;b++)
+                              RTDSendByte((a*16)+b);
+              
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      }
+                //*********************************
+                #else
+                //******************************* DISP ucMode_Curr
+                       bRTD_SCSB   = 0;  
+                      RTDSendAddr(OSD_ROW_90, 0, Y_INC);  
+                      RTDSendByte(0x82);
+                      RTDSendByte(2);
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      
+                     bRTD_SCSB   = 0; 
+                      RTDSendAddr(OSD_DATA_92, 0, N_INC);
+                      HexToBin(UartData[0]);
+              
+                      RTDSendByte(Data[5]+1);
+                      RTDSendByte(Data[4]+1);
+                      RTDSendByte(Data[3]+1);
+                      RTDSendByte(Data[2]+1);
+                      RTDSendByte(Data[1]+1);
+                      RTDSendByte(Data[0]+1);
+              
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                 //******************************* DISP ucMode_Curr
+                       bRTD_SCSB   = 0;  
+                      RTDSendAddr(OSD_ROW_90, 0, Y_INC);  
+                      RTDSendByte(0x83);
+                      RTDSendByte(2);
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      
+                     bRTD_SCSB   = 0; 
+                      RTDSendAddr(OSD_DATA_92, 0, N_INC);
+                      HexToBin(UartData[1]);
+              
+                      RTDSendByte(Data[5]+1);
+                      RTDSendByte(Data[4]+1);
+                      RTDSendByte(Data[3]+1);
+                      RTDSendByte(Data[2]+1);
+                      RTDSendByte(Data[1]+1);
+                      RTDSendByte(Data[0]+1);
+              
+                      bRTD_SCLK   = 0; 
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 7   
+
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      
+                //******************************* DISP ucMode_Curr
+                       bRTD_SCSB   = 0;  
+                      RTDSendAddr(OSD_ROW_90, 0, Y_INC);  
+                      RTDSendByte(0x84);
+                      RTDSendByte(2);
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      
+                     bRTD_SCSB   = 0; 
+                      RTDSendAddr(OSD_DATA_92, 0, N_INC);
+                      HexToBin(UartData[2]);
+              
+                      RTDSendByte(Data[5]+1);
+                      RTDSendByte(Data[4]+1);
+                      RTDSendByte(Data[3]+1);
+                      RTDSendByte(Data[2]+1);
+                      RTDSendByte(Data[1]+1);
+                      RTDSendByte(Data[0]+1);
+              
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                       //******************************* DISP ucMode_Curr
+                       bRTD_SCSB   = 0;  
+                      RTDSendAddr(OSD_ROW_90, 0, Y_INC);  
+                      RTDSendByte(0x85);
+                      RTDSendByte(2);
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      
+                     bRTD_SCSB   = 0; 
+                      RTDSendAddr(OSD_DATA_92, 0, N_INC);
+                      HexToBin(UartData[3]);
+              
+                      RTDSendByte(Data[5]+1);
+                      RTDSendByte(Data[4]+1);
+                      RTDSendByte(Data[3]+1);
+                      RTDSendByte(Data[2]+1);
+                      RTDSendByte(Data[1]+1);
+                      RTDSendByte(Data[0]+1);
+              
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                       //******************************* DISP ucMode_Curr
+                       bRTD_SCSB   = 0;  
+                      RTDSendAddr(OSD_ROW_90, 0, Y_INC);  
+                      RTDSendByte(0x86);
+                      RTDSendByte(2);
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      
+                     bRTD_SCSB   = 0; 
+                      RTDSendAddr(OSD_DATA_92, 0, N_INC);
+                      HexToBin(UartData[4]);
+              
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 8   
+
+                      RTDSendByte(Data[5]+1);
+                      RTDSendByte(Data[4]+1);
+                      RTDSendByte(Data[3]+1);
+                      RTDSendByte(Data[2]+1);
+                      RTDSendByte(Data[1]+1);
+                      RTDSendByte(Data[0]+1);
+              
+                      bRTD_SCLK   = 0; 
+                      bRTD_SCLK   = 1;
+                      bRTD_SCSB   = 1;
+                      
+                
+                #endif
+                  
+              }
+              
+              // *************************************************************** //
+              /*
+              1.into  debug mode  0x5a,0x01,0x02,0x03,0x04
+              2.exit  debug mode  0x5b,0x04,0x03,0x02,0x01
+              3.read  RTD         0x5c,0x74,address,count,index
+              4.read  other       0x5c,slave address,address,count,index
+              5.write rtd         0x5d,0x74,address,value,rever       
+              6.write other       0x5d,slave address,address,value,rever      
+              */
+              // *************************************************************** //
+              
+              void DebugModeLoop(void)
+              {
+              //DispOSD_TestMessage();
+              if(fDebugModeEnable==0)
+                      if(UartData[0]==0x5a)
+                              if(UartData[1]==0x01)
+                                      if(UartData[2]==0x02)
+                                              if(UartData[3]==0x03)
+                                                      if(UartData[4]==0x04)
+                                                              {
+                                                              fDebugModeEnable=1;
+                                                              DispOSD_TestMessage();
+                                                              }
+                      
+              
+              while(fDebugModeEnable==1)
+              {
+                      if(fTest==1)
+                      {
+                      fTest=0;
+                              if(UartData[0]==0x5b)
+                                      if(UartData[1]==0x04)
+                                              if(UartData[2]==0x03)
+                                                      if(UartData[3]==0x02)
+                                                              if(UartData[4]==0x01)
+                                                                      {
+                                                                      fDebugModeEnable=0;
+                                                                        RTDOSDW(OSD_Reset);
+                                                                        RTDCodeW(OSD_Enable);
+                                                                      break;
+                                                                      }
+              
+                              //****************debug mode main loop Start
+                              DispOSD_TestMessage();
+                              switch(UartData[0])
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 9   
+
+                                      {
+                                      case 0x5c:
+                                              if(UartData[1]==0x74)//read scaler    
+                                                      RTDRead(UartData[2], UartData[3], UartData[4]);  // Get status
+                                              else 
+                                                      I2CRead(UartData[1], UartData[2] ,UartData[3]);
+              
+                                              PutCharToScr(UartData[3]);  //send 各數
+                                              for(UartData[0]=0;UartData[0]<=UartData[3];UartData[0]++)//send data
+                                                      PutCharToScr(Data[UartData[0]]);
+                                      break;
+                                      case 0x5d:
+                                              if(UartData[1]==0x74)//read scaler    
+                                                      RTDSetByte(UartData[2], UartData[3]);
+                                              else
+                                                      {
+                                                      Data[0] = 4;
+                                              Data[1] = UartData[1];
+                                              Data[2] = UartData[2];
+                                              Data[3] = UartData[3];
+                                              I2CWrite(Data);
+                                                      }
+                                      break;  
+                                      }
+                                                      
+                              //****************debug mode main loop END
+                              
+                      }
+                      
+              }
+              
+              }
+              
+              // ***************************************************************//
+              #endif
+ 522          
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 10  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 11  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+P3 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B0H  1
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 12  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+SCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0098H  1
+TCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0088H  1
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+T2CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+C51 COMPILER V7.06   UART                                                                  11/21/2005 13:47:23 PAGE 13  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

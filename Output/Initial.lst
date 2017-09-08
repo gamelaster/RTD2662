@@ -1,0 +1,1470 @@
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE INITIAL
+OBJECT MODULE PLACED IN .\Output\Initial.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Initial.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PRI
+                    -NT(.\Output\Initial.lst) PREPRINT(.\Output\Initial.i) OBJECT(.\Output\Initial.obj)
+
+stmt level    source
+
+   1          #define __INITIAL__
+   2          
+   3          #include "Header\Lcd_main.h"
+   4          #include "reg52.h"
+   5          #include "Header\Access.h"
+   6          #include "Header\config.h"
+   7          #include "intrins.h"
+   8          #include "Header\Lcd_func.h"
+   9          #include "Header\Initial.h"
+  10          #include "Header\OSD.h"
+  11          #include "Header\Src_Ctrl.h"
+  12          #include "Header\Frame_Sync.h"
+  13          //#include "Power_Ctrl.h"
+  14          
+  15          void MCU_Init(void)
+  16          {
+  17   1      #if(MCU_TYPE == MCU_WINBOND)
+  18   1          IE      = 0x00;                 // Disable all interrupts
+  19   1          TMOD    = 0x11;                 // Program Timer0 & Timer1 to Mode#1
+  20   1          TR0     = 0;                    // Stop Timer0
+  21   1          TF0     = 0;                    // Clear Timer0 Overflow Bit
+  22   1          TL0     = TIME0_COUNTER_LBYTE;  // Load Timer0 low-byte   (for 20ms)
+  23   1          TH0     = TIME0_COUNTER_HBYTE;  // Load Timer0 high-byte  (for 20ms)
+  24   1          TR1     = 0;                    // Stop Timer1
+  25   1          TF1     = 0;                    // Clear Timer1 Overflow Bit
+  26   1          TL1     = TIME1_COUNTER_LBYTE;  // Load Timer1 low-byte   (for 1ms)
+  27   1          TH1     = TIME1_COUNTER_HBYTE;  // Load Timer1 hifh-byte  (for 1ms)
+  28   1          IE      = 0x8a;                 // Enable interrupts of Timer0 and Timer1
+  29   1      //anson 050519    
+  30   1          M512_PadMode0=0x00;         //
+  31   1          M512_PadMode1=0xff;         //
+  32   1          M512_PadMode2=0xb0;         //
+  33   1          M512_PadMode3=0xcf;         //
+  34   1          M512_PadMode4=0xf2;         //
+  35   1          M512_PadMode5=0x00;         //
+  36   1      //    M512_PadMode6=0xbf;               //
+  37   1          M512_PadMode7=0x3f;         //
+  38   1          M512_Option1=0x01;
+  39   1      #else
+                  IE      = 0x00;                 // Disable all interrupts
+                  TMOD    = 0x11;             // Program Timer0 & Timer1 to Mode#1
+                  TR0     = 0;                    // Stop Timer0
+                  TF0     = 0;                    // Clear Timer0 Overflow Bit
+                  TL0     = TIME0_COUNTER_LBYTE;  // Load Timer0 low-byte   (for 20ms)
+                  TH0     = TIME0_COUNTER_HBYTE;  // Load Timer0 high-byte  (for 20ms)
+                  TR1     = 0;                    // Stop Timer1
+                  TF1     = 0;                    // Clear Timer1 Overflow Bit
+                  TL1     = TIME1_COUNTER_LBYTE;  // Load Timer1 low-byte   (for 1ms)
+                  TH1     = TIME1_COUNTER_HBYTE;  // Load Timer1 hifh-byte  (for 1ms)
+                  
+                  IE      = 0x86;                 // Enable interrupts of Timer0 and Timer1
+                  TR0            = 1;
+              //anson 050519    
+                  M512_PadMode0=0x00;         //
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 2   
+
+                  M512_PadMode1=0xff;         //
+                  M512_PadMode2=0xb0;         //
+                  M512_PadMode3=0xcf;         //
+                  M512_PadMode4=0xf2;         //
+                  M512_PadMode5=0x00;         //
+              //    M512_PadMode6=0xbf;               //
+                  M512_PadMode7=0x3f;         //
+                  M512_Option1=0x01;
+              
+              #endif
+  65   1      }
+  66          
+  67          void Firmware_Init(void)
+  68          {
+  69   1      
+  70   1      #if(MCU_TYPE == MCU_WINBOND)
+  71   1          bLIGHT_PWR  = LIGHT_OFF;
+  72   1          bPANEL_PWR  = PANEL_OFF;
+  73   1          bPanel_Status = _OFF;
+  74   1      #else
+                  MCU_WriteBacklightPower(LIGHT_OFF);
+                  MCU_WritePanelPower(PANEL_OFF);
+                          bPanel_Status = _OFF;
+              #endif
+  79   1      
+  80   1           MCU_Init();
+  81   1           RTDSetBit(HOSTCTRL_02,0xfb,0x00);    // RTD turn on
+  82   1      #if(MCU_TYPE == MCU_WINBOND)
+  83   1      
+  84   1      #if(RESET_TYPE == RESET_IN)
+                  bRTD_RST    = 0;
+                  Delay_Xms(10);
+                  do
+                  {
+                      // Wait for reset complete
+                      bRTD_RST    = 1;
+                      Delay_Xms(2);
+                  }
+                  while (!bRTD_RST);
+              #endif
+  95   1      
+  96   1      #else
+              
+              #if(RESET_TYPE == RESET_IN)
+                  MCU_WriteRtdReset(LOW);
+                  Delay_Xms(10);
+                  do
+                  {
+                      // Wait for reset complete
+                      MCU_WriteRtdReset(HIGH);
+                      Delay_Xms(10);
+                  }
+                  while (MCU_ReadRtdReset()!=HIGH);
+              #endif
+              
+              
+              #endif
+ 112   1      
+ 113   1          RTDRead(ID_REG_00,1,N_INC);
+ 114   1              ucID_Code = Data[0];
+ 115   1      
+ 116   1      
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 3   
+
+ 117   1          RTDCodeW(RTD_PWUP_INI);
+ 118   1              
+ 119   1      #if(HDCP_ENABLE)
+                  RTDCodeW(BKSV);
+                  KEYCodeW(HDCP_KEY_A_Port);
+              #endif
+ 123   1      
+ 124   1          RTDSetByte(HOSTCTRL_02, 0x40);          // Wake RTD up
+ 125   1          RTDSetByte(DPLL_CTRL_D0, 0x11);         // Enable DPLL
+ 126   1      
+ 127   1          RTDSetByte(VDIS_SIGINV_21, 0x00 | DISP_EO_SWAP | DISP_RB_SWAP | DISP_ML_SWAP);       // DHS, DVS, DEN,
+             - DCLK MUST NOT be inverted.
+ 128   1      
+ 129   1          RTDSetBit(VDIS_CTRL_20, 0xfd, 0x21);    // DHS, DVS, DEN, DCLK and data are clamped to 0
+ 130   1      
+ 131   1          RTDSetBit(DIS_TIMING0_3A, 0xff, 0x20);  // Force display timing enable
+ 132   1          RTDSetBit(DIS_TIMING0_3A, 0xdf, 0x00);  // Stop forcing
+ 133   1      
+ 134   1          _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_();
+ 135   1      
+ 136   1          RTDSetBit(VDIS_CTRL_20, 0xfe, 0x00);    // Stop display timing
+ 137   1      
+ 138   1          RTDSetByte(HOSTCTRL_02, 0x42);          // Put RTD2020 back into power-saving mode
+ 139   1          RTDSetByte(DPLL_CTRL_D0, 0x10);         // Disable DPLL
+ 140   1      
+ 141   1          RTDCodeW(RTD_DDC_TABLE);
+ 142   1          RTDCodeW(RTD_IO_INI);
+ 143   1      
+ 144   1      #if(!SOURCE_AUTO_SCAN)
+                  PowerDown_VDC();
+                  //Device_Power(VDC_POWER,OFF);
+              #endif
+ 148   1      
+ 149   1              PowerDown_TMDS();
+ 150   1          PowerDown_LVDS();
+ 151   1          //Device_Power(TMDS_POWER,OFF);
+ 152   1          //Device_Power(LVDS_POWER,OFF);
+ 153   1      
+ 154   1          Delay_Xms(10);
+ 155   1      
+ 156   1          // Check and initial EEPROM if necessary
+ 157   1          Delay_Xms(10);
+ 158   1          Check_EEPROM();
+ 159   1          Delay_Xms(10);
+ 160   1      
+ 161   1          // Turn timer0 on. Let's go ~~~
+ 162   1          TR0     = 1;
+ 163   1      
+ 164   1      
+ 165   1      }
+ 166          
+ 167          void Power_Up_Init(void)    // Do once when power up
+ 168          {
+ 169   1         
+ 170   1           RTDSetBit(HOSTCTRL_02,0xfb,0x00);    // RTD turn on
+ 171   1      
+ 172   1      
+ 173   1          Reset_RTD();            // Initial RTD3000 & OSD
+ 174   1      
+ 175   1      
+ 176   1      
+ 177   1      #if(ADC_DEFFERENTIAL)
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 4   
+
+ 178   1          RTDSetBit(ADC_DIFF_MODE_EC,0xff,0x40); //Differential mode
+ 179   1      #else
+                  RTDSetBit(ADC_DIFF_MODE_EC,0xbf,0x00); //Single endded mode
+              #endif
+ 182   1      
+ 183   1      
+ 184   1      
+ 185   1      #if(MCU_TYPE == MCU_WINBOND)
+ 186   1          bLIGHT_PWR  = LIGHT_OFF;
+ 187   1          bPANEL_PWR  = PANEL_OFF;
+ 188   1              bPanel_Status = _OFF;
+ 189   1      #else
+                  MCU_WriteBacklightPower(LIGHT_OFF);
+                  MCU_WritePanelPower(PANEL_OFF);
+                  bPanel_Status = _OFF;
+              #endif
+ 194   1      
+ 195   1      
+ 196   1      #if(TUNE_APLL)
+ 197   1              ucPE_Max = 0;
+ 198   1              RTDSetByte(DV_TOTAL_STATUS_3D,0x40); //clear PE Max value
+ 199   1      #endif
+ 200   1      
+ 201   1      #if(!SOURCE_AUTO_SCAN)
+                  PowerDown_VDC();
+                      //Device_Power(VDC_POWER,OFF);
+              #endif
+ 205   1      
+ 206   1          PowerDown_LVDS();
+ 207   1              //Device_Power(LVDS_POWER,OFF);
+ 208   1      
+ 209   1      #if(TMDS_ENABLE)
+ 210   1      RTDSetByte(ANG_PERFORMANCE2_A3, 0x26); //Go about the TMDS impedence match
+ 211   1      RTDSetByte(ANG_PERFORMANCE2_A3, 0x36);          
+ 212   1      #endif
+ 213   1      
+ 214   1          //RTDSetBit(OVL_CTRL_6D, 0x3f, (stGUD1.FUNCTION & 0x10) ? 0x80 : 0x00);
+ 215   1      
+ 216   1          RTDSetBit(OVL_CTRL_6D, 0xc7, (stGUD1.INPUT_SOURCE & 0xe0) >> 2);
+ 217   1      
+ 218   1      
+ 219   1      #if (SPREAD_SPECTRUM)
+ 220   1      
+ 221   1      //    RTDSetBit(SPREAD_SPECTRUM_99,0x03,0x00);
+ 222   1          RTDSetBit(DPLL_N_D2,0xff,0x20); //DPLL spread spectrum Enable
+ 223   1      
+ 224   1      #endif
+ 225   1      
+ 226   1          Init_Input_Source();    // Initial Mode & OSD
+ 227   1      }
+ 228          
+ 229          void Reset_RTD(void)
+ 230          {
+ 231   1      #if(MCU_TYPE == MCU_WINBOND)
+ 232   1      
+ 233   1      #if(RESET_TYPE == RESET_IN)
+                  bRTD_RST    = 0;
+                      Delay_Xms(10);
+                  do
+                  {
+                      // Wait for reset complete
+                      bRTD_RST    = 1;
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 5   
+
+                      Delay_Xms(6);
+                  }
+                  while (!bRTD_RST);
+              #endif
+ 244   1      
+ 245   1      #else
+              
+              #if(RESET_TYPE == RESET_IN)
+                  MCU_WriteRtdReset(LOW);
+                       Delay_Xms(10);
+                  do
+                  {
+                      // Wait for reset complete
+                      MCU_WriteRtdReset(HIGH);
+                      Delay_Xms(6);
+                  }
+                  while (MCU_ReadRtdReset()!=HIGH);
+              #endif
+              
+              #endif
+ 260   1          
+ 261   1      
+ 262   1      
+ 263   1          // Initial RTD3000 & free background display
+ 264   1          RTDCodeW(RTD_PWUP_INI);
+ 265   1      #if(HDCP_ENABLE)
+                  RTDCodeW(BKSV);
+                  KEYCodeW(HDCP_KEY_A_Port);
+              #endif
+ 269   1      
+ 270   1          RTDCodeW(RTD_DDC_TABLE);
+ 271   1          RTDCodeW(RTD_IO_INI);
+ 272   1      
+ 273   1          RTDSetByte(HOSTCTRL_02, 0x40);          // Wake RTD up
+ 274   1      
+ 275   1          RTDCodeW(FreeV);
+ 276   1      
+ 277   1          RTDSetByte(VDIS_SIGINV_21, 0x00 | DISP_EO_SWAP | DISP_RB_SWAP | DISP_ML_SWAP);       // DHS, DVS, DEN,
+             - DCLK MUST NOT be inverted.
+ 278   1      
+ 279   1      
+ 280   1          RTDSetBit(VDIS_CTRL_20, 0xfd, 0x01);    // DHS, DVS, DEN, DCLK and data are clamped to 0
+ 281   1      
+ 282   1          // Initial RTD3000-OSD
+ 283   1          RTDCodeW(OSD_PWUP_INI);
+ 284   1          RTDOSDW(OSD_Reset);
+ 285   1      
+ 286   1          // Initial OSD palette
+ 287   1          RTDCodeW(Palette_Open);
+ 288   1          RTDCodeW(Palette_7);
+ 289   1          RTDCodeW(Palette_Close);
+ 290   1      
+ 291   1      
+ 292   1      
+ 293   1      
+ 294   1          // Check and initial EEPROM if necessary
+ 295   1      //    Delay_Xms(10);
+ 296   1      //    Check_EEPROM();
+ 297   1      //    Delay_Xms(10);
+ 298   1      
+ 299   1          Set_Gamma();
+ 300   1          Set_Dithering();
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 6   
+
+ 301   1          Set_Bright_Contrast();
+ 302   1      }
+ 303          
+ 304          void Init_Input_Source(void)
+ 305          {       
+ 306   1          ucMode_Found    = MODE_NOSUPPORT;
+ 307   1          ucMode_Curr     = MODE_NOSIGNAL;
+ 308   1          ucMode_Times    = 0;
+ 309   1          ucAV_Mode       = 0;
+ 310   1          bVpole_Curr     = 1;                // The initial set of polarity is positive
+ 311   1          bHpole_Curr     = 1;                // The initial set of polarity is positive
+ 312   1      
+ 313   1          // Unknown signal source
+ 314   1          if (SOURCE_MAX < (stGUD1.INPUT_SOURCE & 0x07))
+ 315   1              stGUD1.INPUT_SOURCE = (stGUD1.INPUT_SOURCE & 0xf8) | SOURCE_VGA;
+ 316   1      
+ 317   1      #if (TMDS_ENABLE == _FALSE)
+                  if (SOURCE_DVI == (stGUD1.INPUT_SOURCE & 0x07))
+                      stGUD1.INPUT_SOURCE = (stGUD1.INPUT_SOURCE & 0xf8) | SOURCE_VGA;
+              #endif
+ 321   1      
+ 322   1      #if (VIDEO_CHIP == VDC_NONE)
+ 323   1          if (SOURCE_AV == (stGUD1.INPUT_SOURCE & 0x07) || SOURCE_SV == (stGUD1.INPUT_SOURCE & 0x07))
+ 324   1              stGUD1.INPUT_SOURCE = (stGUD1.INPUT_SOURCE & 0xf8) | SOURCE_VGA;
+ 325   1      #endif
+ 326   1      #if (VIDEO_CHIP != VDC_SAA7118)
+ 327   1          if (SOURCE_YUV == (stGUD1.INPUT_SOURCE & 0x07))
+ 328   1              stGUD1.INPUT_SOURCE = (stGUD1.INPUT_SOURCE & 0xf8) | SOURCE_VGA;
+ 329   1      #endif
+ 330   1      #if (TV_CHIP == TV_NONE)
+ 331   1          if (SOURCE_TV == (stGUD1.INPUT_SOURCE & 0x07))
+ 332   1              stGUD1.INPUT_SOURCE = (stGUD1.INPUT_SOURCE & 0xf8) | SOURCE_VGA;
+ 333   1      #endif
+ 334   1      
+ 335   1          // Because internal ADC power state will not affect VGA mode detection,
+ 336   1          // we always turn off ADC when source changed, and turn it on again only 
+ 337   1          // when a valid VGA mode is going to display.
+ 338   1          PowerDown_ADC();
+ 339   1          //Device_Power(ADC_POWER,OFF);
+ 340   1      
+ 341   1      #if(SOURCE_AUTO_SCAN)
+ 342   1              PowerUp_VDC();
+ 343   1              Delay_Xms(10);
+ 344   1      #if (VIDEO_CHIP == VDC_SAA7114 || VIDEO_CHIP == VDC_SAA7115 || VIDEO_CHIP == VDC_SAA7118)
+                      I2CWrite(V_ENABLE);         // VIDEO ENABLE
+                      I2CWrite(VIDEO_ALL);
+              #endif
+ 348   1          bSourceScanEnable = _TRUE;
+ 349   1      #endif
+ 350   1      
+ 351   1          switch (stGUD1.INPUT_SOURCE & 0x07)
+ 352   1          {
+ 353   2          case SOURCE_VGA:
+ 354   2      #if (VIDEO_CHIP == VDC_SAA7114 || VIDEO_CHIP == VDC_SAA7115 || VIDEO_CHIP == VDC_SAA7118)
+                      I2CWrite(V_DISABLE);        // VIDEO DISABLE
+              #endif
+ 357   2              I2CWrite(V_NOWORK);         // VIDEO No Work
+ 358   2      
+ 359   2      #if(!SOURCE_AUTO_SCAN)
+                  PowerDown_VDC();
+                      PowerDown_TMDS();
+                      //Device_Power(VDC_POWER,OFF);
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 7   
+
+                      //Device_Power(TMDS_POWER,OFF);
+              #else
+ 365   2          PowerUp_VDC();
+ 366   2              PowerUp_TMDS();
+ 367   2              //Device_Power(VDC_POWER,ON);
+ 368   2              //Device_Power(TMDS_POWER,ON);
+ 369   2      #endif
+ 370   2      
+ 371   2      #if(TMDS_ENABLE)
+ 372   2              RTDSetBit(TMDS_CORRECTION_FF,0xfc,0x00);
+ 373   2      #endif
+ 374   2              // Set user's ADC gain and offset settings
+ 375   2              SetADC_GainOffset();
+ 376   2      
+ 377   2              ucInputSrc  = SOURCE_VGA;        
+ 378   2              ucSync_Type = SYNC_SS;
+ 379   2      
+ 380   2              RTDCodeW(VGA_INI_SS);
+ 381   2              break;
+ 382   2        case SOURCE_DVI:
+ 383   2      #if (VIDEO_CHIP == VDC_SAA7114 || VIDEO_CHIP == VDC_SAA7115 || VIDEO_CHIP == VDC_SAA7118)
+                      I2CWrite(V_DISABLE);        // VIDEO DISABLE
+              #endif
+ 386   2              I2CWrite(V_NOWORK);         // VIDEO No Work
+ 387   2      
+ 388   2      #if(!SOURCE_AUTO_SCAN)
+                  PowerDown_VDC();
+                      //Device_Power(VDC_POWER,OFF);
+              #else
+ 392   2          PowerUp_VDC();
+ 393   2              //Device_Power(VDC_POWER,ON);
+ 394   2      #endif
+ 395   2      
+ 396   2      #if(TMDS_ENABLE)
+ 397   2              RTDSetBit(TMDS_CORRECTION_FF,0xfc,0x00);
+ 398   2      #endif
+ 399   2              PowerUp_TMDS();
+ 400   2              //Device_Power(TMDS_POWER,ON);
+ 401   2      
+ 402   2              ucInputSrc  = SOURCE_DVI;        
+ 403   2              RTDCodeW(DVI_INI);
+ 404   2              break;      
+ 405   2          case SOURCE_AV:
+ 406   2          case SOURCE_TV:
+ 407   2      #if(SOURCE_AUTO_SCAN)
+ 408   2              if((SOURCE_AV != MASTER_SOURCE) && (SOURCE_AV != SLAVE_SOURCE) && (SOURCE_AV != THIRD_SOURCE))
+ 409   2                         bSourceScanEnable = _FALSE;
+ 410   2      #endif   
+ 411   2              PowerUp_VDC();
+ 412   2      
+ 413   2      #if(TMDS_ENABLE)
+ 414   2              RTDSetBit(TMDS_CORRECTION_FF,0xfc,0x00);
+ 415   2      #endif
+ 416   2              //Device_Power(VDC_POWER,ON);
+ 417   2      
+ 418   2              // PCB rev.C
+ 419   2              // For PCB rev.C, turning down TMDS will turning on video decoder.
+ 420   2              // However, video decoder needs times to wake up.
+ 421   2              Delay_Xms(10);
+ 422   2      
+ 423   2      #if (VIDEO_CHIP == VDC_SAA7114 || VIDEO_CHIP == VDC_SAA7115 || VIDEO_CHIP == VDC_SAA7118)
+                      I2CWrite(V_ENABLE);         // VIDEO ENABLE
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 8   
+
+                      I2CWrite(VIDEO_ALL);
+              #endif
+ 427   2              I2CWrite(AV_DETECT);        // VIDEO Detect(AV)
+ 428   2      
+ 429   2              if (SOURCE_AV == (stGUD1.INPUT_SOURCE & 0x07))
+ 430   2              {
+ 431   3                  ucInputSrc  = SOURCE_AV;
+ 432   3              }
+ 433   2              else
+ 434   2              {
+ 435   3                  ucInputSrc  = SOURCE_TV;
+ 436   3      
+ 437   3      #if (TV_CHIP != TV_NONE)
+                          // Set TV channel
+                          Set_TV_Channel();
+              #endif
+ 441   3                  // Select TV signal input pin and disable AGC of video decoder
+ 442   3                  I2CWrite(TV_SOURCE_SEL);
+ 443   3                  I2CWrite(TV_SCAN_GAIN);
+ 444   3              }
+ 445   2      
+ 446   2              RTDCodeW(VIDEO_INI);
+ 447   2              I2CRead(ADDR_VIDEO, 0x1f, 0x01);
+ 448   2              break;
+ 449   2              
+ 450   2          case SOURCE_SV:
+ 451   2      #if(SOURCE_AUTO_SCAN)
+ 452   2              if((SOURCE_SV != MASTER_SOURCE) && (SOURCE_SV != SLAVE_SOURCE) && (SOURCE_SV != THIRD_SOURCE))
+ 453   2                         bSourceScanEnable = _FALSE;
+ 454   2      #endif   
+ 455   2      
+ 456   2               PowerUp_VDC();
+ 457   2               //Device_Power(VDC_POWER,ON);
+ 458   2      
+ 459   2      
+ 460   2             Delay_Xms(10);
+ 461   2      
+ 462   2      #if (VIDEO_CHIP == VDC_SAA7114 || VIDEO_CHIP == VDC_SAA7115 || VIDEO_CHIP == VDC_SAA7118)
+                      I2CWrite(V_ENABLE);         // VIDEO ENABLE
+                      I2CWrite(VIDEO_ALL);
+              #endif
+ 466   2              I2CWrite(SV_DETECT);        // VIDEO Detect(SV)
+ 467   2      
+ 468   2              ucInputSrc  = SOURCE_SV;
+ 469   2              RTDCodeW(VIDEO_INI);
+ 470   2              I2CRead(ADDR_VIDEO, 0x1f, 0x01);
+ 471   2              break;
+ 472   2      
+ 473   2          case SOURCE_YUV:
+ 474   2      #if(SOURCE_AUTO_SCAN)
+ 475   2              if((SOURCE_YUV != MASTER_SOURCE) && (SOURCE_YUV != SLAVE_SOURCE) && (SOURCE_YUV != THIRD_SOURCE))
+ 476   2                         bSourceScanEnable = _FALSE;
+ 477   2      #endif   
+ 478   2      
+ 479   2                  PowerUp_VDC();
+ 480   2                      //Device_Power(VDC_POWER,ON);
+ 481   2      
+ 482   2              
+ 483   2              Delay_Xms(10);
+ 484   2      
+ 485   2              I2CWrite(V_ENABLE);         // VIDEO ENABLE
+ 486   2              I2CWrite(VIDEO_ALL);
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 9   
+
+ 487   2              I2CWrite(VIDEO_YUV);
+ 488   2      
+ 489   2              I2CWrite(YUV_DETECT);       // VIDEO Detect(YUV)
+ 490   2      
+ 491   2              ucInputSrc  = SOURCE_YUV;
+ 492   2              RTDCodeW(VIDEO_INI);
+ 493   2              I2CRead(ADDR_VIDEO, 0x1f, 0x01);
+ 494   2              break;
+ 495   2          }
+ 496   1      
+ 497   1      #if (AUDIO_TYPE != AUDIO_NONE)
+ 498   1          SetVolume();
+ 499   1      #endif
+ 500   1      }
+ 501          void Power_Status_Init(void)
+ 502          {
+ 503   1      #if (POWER_KEY_TYPE == TYPE_ONE_TOUCH)
+ 504   1      
+ 505   1      #if (KEY_DISABLED == POWER_KEY_MASK)
+              
+                  // Force system to power up when no power-key
+              
+                  bPower_Status   = 1;
+              
+                  Power_Up_Init();
+              
+                  bStable     = 0;                    // Assume input signal is not stable when power up
+                  bReload     = 1;                    // Always reload font when power up
+                  bFrameSync  = 0;                    // Not sync yet
+                  ucModeCnt   = MODE_DETECT_FREQ;     // Reset Input Mode Detector
+                  
+                  Measure_Mode();                     // Measure mode-timing
+                  Set_Task(STATE_POWERUP);            // Notify Task State Machine
+              
+              #else
+ 522   1      
+ 523   1          // Restore previous power status
+ 524   1      
+ 525   1          if (0 == (stGUD1.FUNCTION & 0x08))
+ 526   1          {
+ 527   2              bPower_Status   = 1;
+ 528   2      
+ 529   2                      if(((stGUD3.TV_SETTING & 0x08)==0x08) || ((stGUD3.TV_SETTING & 0x20)==0x20))    //anson
+ 530   2                      {
+ 531   3                               stGUD3.TV_SETTING &= 0xF7 ;  
+ 532   3                               Save_GUD3();
+ 533   3                      }
+ 534   2      
+ 535   2              Power_Up_Init();
+ 536   2      
+ 537   2              
+ 538   2              bStable     = 0;                    // Assume input signal is not stable when power up
+ 539   2              bReload     = 1;                    // Always reload font when power up
+ 540   2              bFrameSync  = 0;                    // Not sync yet
+ 541   2              ucModeCnt   = MODE_DETECT_FREQ;     // Reset Input Mode Detector
+ 542   2          
+ 543   2              Measure_Mode();                     // Measure mode-timing
+ 544   2              Set_Task(STATE_POWERUP);            // Notify Task State Machine
+ 545   2          }
+ 546   1          else
+ 547   1          {
+ 548   2              bPower_Status   = 0;
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 10  
+
+ 549   2          }
+ 550   1      
+ 551   1      #endif
+ 552   1      
+ 553   1      #else
+              
+                  // Do nothing when power-key is two-state type.
+                  bPower_Status   = 0;
+              
+              #endif
+ 559   1      }
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 11  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION Com0022 (BEGIN)
+0000         L?0035:
+0000 900000      E     MOV     DPTR,#M512_Port51
+0003 7401              MOV     A,#01H
+0005 F0                MOVX    @DPTR,A
+0006 900000      E     MOV     DPTR,#M512_Port50
+0009 F0                MOVX    @DPTR,A
+000A C200        E     CLR     bPanel_Status
+000C 22                RET     
+             ; FUNCTION Com0022 (END)
+
+             ; FUNCTION MCU_Init (BEGIN)
+                                           ; SOURCE LINE # 15
+                                           ; SOURCE LINE # 16
+                                           ; SOURCE LINE # 18
+0000 E4                CLR     A
+0001 F5A8              MOV     IE,A
+                                           ; SOURCE LINE # 19
+0003 758911            MOV     TMOD,#011H
+                                           ; SOURCE LINE # 20
+0006 C28C              CLR     TR0
+                                           ; SOURCE LINE # 21
+0008 C28D              CLR     TF0
+                                           ; SOURCE LINE # 22
+000A 758AFF            MOV     TL0,#0FFH
+                                           ; SOURCE LINE # 23
+000D 758C5F            MOV     TH0,#05FH
+                                           ; SOURCE LINE # 24
+0010 C28E              CLR     TR1
+                                           ; SOURCE LINE # 25
+0012 C28F              CLR     TF1
+                                           ; SOURCE LINE # 26
+0014 758BFF            MOV     TL1,#0FFH
+                                           ; SOURCE LINE # 27
+0017 758DF7            MOV     TH1,#0F7H
+                                           ; SOURCE LINE # 28
+001A 75A88A            MOV     IE,#08AH
+                                           ; SOURCE LINE # 30
+001D 900000      E     MOV     DPTR,#M512_PadMode0
+0020 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 31
+0021 900000      E     MOV     DPTR,#M512_PadMode1
+0024 74FF              MOV     A,#0FFH
+0026 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 32
+0027 900000      E     MOV     DPTR,#M512_PadMode2
+002A 74B0              MOV     A,#0B0H
+002C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 33
+002D 900000      E     MOV     DPTR,#M512_PadMode3
+0030 74CF              MOV     A,#0CFH
+0032 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 34
+0033 900000      E     MOV     DPTR,#M512_PadMode4
+0036 74F2              MOV     A,#0F2H
+0038 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 35
+0039 E4                CLR     A
+003A 900000      E     MOV     DPTR,#M512_PadMode5
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 12  
+
+003D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 37
+003E 900000      E     MOV     DPTR,#M512_PadMode7
+0041 743F              MOV     A,#03FH
+0043 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 38
+0044 900000      E     MOV     DPTR,#M512_Option1
+0047 7401              MOV     A,#01H
+0049 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 65
+004A 22                RET     
+             ; FUNCTION MCU_Init (END)
+
+             ; FUNCTION Firmware_Init (BEGIN)
+                                           ; SOURCE LINE # 67
+                                           ; SOURCE LINE # 68
+                                           ; SOURCE LINE # 71
+                                           ; SOURCE LINE # 72
+                                           ; SOURCE LINE # 73
+0000 120000      R     LCALL   L?0035
+                                           ; SOURCE LINE # 80
+0003 120000      R     LCALL   MCU_Init
+                                           ; SOURCE LINE # 81
+0006 E4                CLR     A
+0007 FB                MOV     R3,A
+0008 7DFB              MOV     R5,#0FBH
+000A 7F02              MOV     R7,#02H
+000C 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 113
+000F 7B01              MOV     R3,#01H
+0011 7D01              MOV     R5,#01H
+0013 E4                CLR     A
+0014 FF                MOV     R7,A
+0015 120000      E     LCALL   _RTDRead
+                                           ; SOURCE LINE # 114
+0018 7800        E     MOV     R0,#LOW ucID_Code
+001A A600        E     MOV     @R0,Data
+                                           ; SOURCE LINE # 117
+001C 7E00        E     MOV     R6,#HIGH RTD_PWUP_INI
+001E 7F00        E     MOV     R7,#LOW RTD_PWUP_INI
+0020 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 124
+0023 7D40              MOV     R5,#040H
+0025 7F02              MOV     R7,#02H
+0027 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 125
+002A 7D11              MOV     R5,#011H
+002C 7FD0              MOV     R7,#0D0H
+002E 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 127
+0031 E4                CLR     A
+0032 FD                MOV     R5,A
+0033 7F21              MOV     R7,#021H
+0035 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 129
+0038 7B21              MOV     R3,#021H
+003A 7DFD              MOV     R5,#0FDH
+003C 7F20              MOV     R7,#020H
+003E 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 131
+0041 7B20              MOV     R3,#020H
+0043 7DFF              MOV     R5,#0FFH
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 13  
+
+0045 7F3A              MOV     R7,#03AH
+0047 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 132
+004A E4                CLR     A
+004B FB                MOV     R3,A
+004C 7DDF              MOV     R5,#0DFH
+004E 7F3A              MOV     R7,#03AH
+0050 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 134
+0053 00                NOP     
+0054 00                NOP     
+0055 00                NOP     
+0056 00                NOP     
+0057 00                NOP     
+0058 00                NOP     
+0059 00                NOP     
+005A 00                NOP     
+                                           ; SOURCE LINE # 136
+005B E4                CLR     A
+005C FB                MOV     R3,A
+005D 7DFE              MOV     R5,#0FEH
+005F 7F20              MOV     R7,#020H
+0061 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 138
+0064 7D42              MOV     R5,#042H
+0066 7F02              MOV     R7,#02H
+0068 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 139
+006B 7D10              MOV     R5,#010H
+006D 7FD0              MOV     R7,#0D0H
+006F 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 141
+0072 7E00        E     MOV     R6,#HIGH RTD_DDC_TABLE
+0074 7F00        E     MOV     R7,#LOW RTD_DDC_TABLE
+0076 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 142
+0079 7E00        E     MOV     R6,#HIGH RTD_IO_INI
+007B 7F00        E     MOV     R7,#LOW RTD_IO_INI
+007D 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 149
+0080 120000      E     LCALL   PowerDown_TMDS
+                                           ; SOURCE LINE # 150
+0083 120000      E     LCALL   PowerDown_LVDS
+                                           ; SOURCE LINE # 154
+0086 7F0A              MOV     R7,#0AH
+0088 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 157
+008B 7F0A              MOV     R7,#0AH
+008D 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 158
+0090 120000      E     LCALL   Check_EEPROM
+                                           ; SOURCE LINE # 159
+0093 7F0A              MOV     R7,#0AH
+0095 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 162
+0098 D28C              SETB    TR0
+                                           ; SOURCE LINE # 165
+009A 22                RET     
+             ; FUNCTION Firmware_Init (END)
+
+             ; FUNCTION Power_Up_Init (BEGIN)
+                                           ; SOURCE LINE # 167
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 14  
+
+                                           ; SOURCE LINE # 168
+                                           ; SOURCE LINE # 170
+0000 E4                CLR     A
+0001 FB                MOV     R3,A
+0002 7DFB              MOV     R5,#0FBH
+0004 7F02              MOV     R7,#02H
+0006 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 173
+0009 120000      R     LCALL   Reset_RTD
+                                           ; SOURCE LINE # 178
+000C 7B40              MOV     R3,#040H
+000E 7DFF              MOV     R5,#0FFH
+0010 7FEC              MOV     R7,#0ECH
+0012 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 186
+                                           ; SOURCE LINE # 187
+                                           ; SOURCE LINE # 188
+0015 120000      R     LCALL   L?0035
+                                           ; SOURCE LINE # 197
+0018 E4                CLR     A
+0019 7800        E     MOV     R0,#LOW ucPE_Max
+001B F6                MOV     @R0,A
+                                           ; SOURCE LINE # 198
+001C 7D40              MOV     R5,#040H
+001E 7F3D              MOV     R7,#03DH
+0020 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 206
+0023 120000      E     LCALL   PowerDown_LVDS
+                                           ; SOURCE LINE # 210
+0026 7D26              MOV     R5,#026H
+0028 7FA3              MOV     R7,#0A3H
+002A 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 211
+002D 7D36              MOV     R5,#036H
+002F 7FA3              MOV     R7,#0A3H
+0031 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 216
+0034 E500        E     MOV     A,stGUD1+01H
+0036 54E0              ANL     A,#0E0H
+0038 13                RRC     A
+0039 13                RRC     A
+003A 543F              ANL     A,#03FH
+003C FB                MOV     R3,A
+003D 7DC7              MOV     R5,#0C7H
+003F 7F6D              MOV     R7,#06DH
+0041 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 222
+0044 7B20              MOV     R3,#020H
+0046 7DFF              MOV     R5,#0FFH
+0048 7FD2              MOV     R7,#0D2H
+004A 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 226
+004D 020000      R     LJMP    Init_Input_Source
+             ; FUNCTION Power_Up_Init (END)
+
+             ; FUNCTION Reset_RTD (BEGIN)
+                                           ; SOURCE LINE # 229
+                                           ; SOURCE LINE # 230
+                                           ; SOURCE LINE # 264
+0000 7E00        E     MOV     R6,#HIGH RTD_PWUP_INI
+0002 7F00        E     MOV     R7,#LOW RTD_PWUP_INI
+0004 120000      E     LCALL   _RTDCodeW
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 15  
+
+                                           ; SOURCE LINE # 270
+0007 7E00        E     MOV     R6,#HIGH RTD_DDC_TABLE
+0009 7F00        E     MOV     R7,#LOW RTD_DDC_TABLE
+000B 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 271
+000E 7E00        E     MOV     R6,#HIGH RTD_IO_INI
+0010 7F00        E     MOV     R7,#LOW RTD_IO_INI
+0012 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 273
+0015 7D40              MOV     R5,#040H
+0017 7F02              MOV     R7,#02H
+0019 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 275
+001C 7E00        E     MOV     R6,#HIGH FreeV
+001E 7F00        E     MOV     R7,#LOW FreeV
+0020 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 277
+0023 E4                CLR     A
+0024 FD                MOV     R5,A
+0025 7F21              MOV     R7,#021H
+0027 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 280
+002A 7B01              MOV     R3,#01H
+002C 7DFD              MOV     R5,#0FDH
+002E 7F20              MOV     R7,#020H
+0030 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 283
+0033 7E00        E     MOV     R6,#HIGH OSD_PWUP_INI
+0035 7F00        E     MOV     R7,#LOW OSD_PWUP_INI
+0037 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 284
+003A 7E00        E     MOV     R6,#HIGH OSD_Reset
+003C 7F00        E     MOV     R7,#LOW OSD_Reset
+003E 120000      E     LCALL   _RTDOSDW
+                                           ; SOURCE LINE # 287
+0041 7E00        E     MOV     R6,#HIGH Palette_Open
+0043 7F00        E     MOV     R7,#LOW Palette_Open
+0045 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 288
+0048 7E00        E     MOV     R6,#HIGH Palette_7
+004A 7F00        E     MOV     R7,#LOW Palette_7
+004C 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 289
+004F 7E00        E     MOV     R6,#HIGH Palette_Close
+0051 7F00        E     MOV     R7,#LOW Palette_Close
+0053 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 299
+0056 120000      E     LCALL   Set_Gamma
+                                           ; SOURCE LINE # 300
+0059 120000      E     LCALL   Set_Dithering
+                                           ; SOURCE LINE # 301
+005C 020000      E     LJMP    Set_Bright_Contrast
+             ; FUNCTION Reset_RTD (END)
+
+             ; FUNCTION Init_Input_Source (BEGIN)
+                                           ; SOURCE LINE # 304
+                                           ; SOURCE LINE # 305
+                                           ; SOURCE LINE # 306
+0000 7800        E     MOV     R0,#LOW ucMode_Found
+0002 76FF              MOV     @R0,#0FFH
+                                           ; SOURCE LINE # 307
+0004 E4                CLR     A
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 16  
+
+0005 7800        E     MOV     R0,#LOW ucMode_Curr
+0007 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 308
+0008 7800        E     MOV     R0,#LOW ucMode_Times
+000A F6                MOV     @R0,A
+                                           ; SOURCE LINE # 309
+000B 7800        E     MOV     R0,#LOW ucAV_Mode
+000D F6                MOV     @R0,A
+                                           ; SOURCE LINE # 310
+000E D200        E     SETB    bVpole_Curr
+                                           ; SOURCE LINE # 311
+0010 D200        E     SETB    bHpole_Curr
+                                           ; SOURCE LINE # 314
+0012 E500        E     MOV     A,stGUD1+01H
+0014 5407              ANL     A,#07H
+0016 FF                MOV     R7,A
+0017 7401              MOV     A,#01H
+0019 C3                CLR     C
+001A 9F                SUBB    A,R7
+001B 5003              JNC     ?C0005
+                                           ; SOURCE LINE # 315
+001D 5300F8      E     ANL     stGUD1+01H,#0F8H
+0020         ?C0005:
+                                           ; SOURCE LINE # 323
+0020 E500        E     MOV     A,stGUD1+01H
+0022 5407              ANL     A,#07H
+0024 FF                MOV     R7,A
+0025 6402              XRL     A,#02H
+0027 6003              JZ      ?C0007
+0029 BF0303            CJNE    R7,#03H,?C0006
+002C         ?C0007:
+                                           ; SOURCE LINE # 324
+002C 5300F8      E     ANL     stGUD1+01H,#0F8H
+002F         ?C0006:
+                                           ; SOURCE LINE # 327
+002F E500        E     MOV     A,stGUD1+01H
+0031 5407              ANL     A,#07H
+0033 FF                MOV     R7,A
+0034 BF0403            CJNE    R7,#04H,?C0008
+                                           ; SOURCE LINE # 328
+0037 5300F8      E     ANL     stGUD1+01H,#0F8H
+003A         ?C0008:
+                                           ; SOURCE LINE # 331
+003A E500        E     MOV     A,stGUD1+01H
+003C 5407              ANL     A,#07H
+003E FF                MOV     R7,A
+003F BF0503            CJNE    R7,#05H,?C0009
+                                           ; SOURCE LINE # 332
+0042 5300F8      E     ANL     stGUD1+01H,#0F8H
+0045         ?C0009:
+                                           ; SOURCE LINE # 338
+0045 120000      E     LCALL   PowerDown_ADC
+                                           ; SOURCE LINE # 342
+                                           ; SOURCE LINE # 343
+0048 120000      R     LCALL   L?0033
+                                           ; SOURCE LINE # 348
+004B D200        E     SETB    bSourceScanEnable
+                                           ; SOURCE LINE # 351
+004D E500        E     MOV     A,stGUD1+01H
+004F 5407              ANL     A,#07H
+0051 14                DEC     A
+0052 6038              JZ      ?C0012
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 17  
+
+0054 14                DEC     A
+0055 604C              JZ      ?C0014
+0057 14                DEC     A
+0058 607C              JZ      ?C0019
+005A 14                DEC     A
+005B 7003              JNZ     $ + 5H
+005D 020000      R     LJMP    ?C0020
+0060 14                DEC     A
+0061 6040              JZ      ?C0014
+0063 2405              ADD     A,#05H
+0065 6003              JZ      $ + 5H
+0067 020000      R     LJMP    ?C0010
+                                           ; SOURCE LINE # 352
+                                           ; SOURCE LINE # 353
+006A         ?C0011:
+                                           ; SOURCE LINE # 357
+006A 120000      R     LCALL   L?0036
+                                           ; SOURCE LINE # 365
+006D 120000      E     LCALL   PowerUp_VDC
+                                           ; SOURCE LINE # 366
+0070 120000      E     LCALL   PowerUp_TMDS
+                                           ; SOURCE LINE # 372
+0073 E4                CLR     A
+0074 FB                MOV     R3,A
+0075 7DFC              MOV     R5,#0FCH
+0077 7FFF              MOV     R7,#0FFH
+0079 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 375
+007C 120000      E     LCALL   SetADC_GainOffset
+                                           ; SOURCE LINE # 377
+007F E4                CLR     A
+0080 7800        E     MOV     R0,#LOW ucInputSrc
+0082 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 378
+0083 7800        E     MOV     R0,#LOW ucSync_Type
+0085 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 380
+0086 7E00        E     MOV     R6,#HIGH VGA_INI_SS
+0088 7F00        E     MOV     R7,#LOW VGA_INI_SS
+                                           ; SOURCE LINE # 381
+008A 8011              SJMP    ?C0028
+                                           ; SOURCE LINE # 382
+008C         ?C0012:
+                                           ; SOURCE LINE # 386
+008C 120000      R     LCALL   L?0036
+                                           ; SOURCE LINE # 392
+                                           ; SOURCE LINE # 397
+008F 120000      R     LCALL   L?0031
+                                           ; SOURCE LINE # 399
+0092 120000      E     LCALL   PowerUp_TMDS
+                                           ; SOURCE LINE # 402
+0095 7800        E     MOV     R0,#LOW ucInputSrc
+0097 7601              MOV     @R0,#01H
+                                           ; SOURCE LINE # 403
+0099 7E00        E     MOV     R6,#HIGH DVI_INI
+009B 7F00        E     MOV     R7,#LOW DVI_INI
+009D         ?C0028:
+009D 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 404
+00A0 020000      R     LJMP    ?C0010
+                                           ; SOURCE LINE # 405
+                                           ; SOURCE LINE # 406
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 18  
+
+00A3         ?C0014:
+                                           ; SOURCE LINE # 408
+                                           ; SOURCE LINE # 409
+00A3 C200        E     CLR     bSourceScanEnable
+                                           ; SOURCE LINE # 411
+                                           ; SOURCE LINE # 414
+00A5 120000      R     LCALL   L?0031
+                                           ; SOURCE LINE # 421
+00A8 7F0A              MOV     R7,#0AH
+00AA 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 427
+00AD 7BFF              MOV     R3,#0FFH
+00AF 7A00        E     MOV     R2,#HIGH AV_DETECT
+00B1 7900        E     MOV     R1,#LOW AV_DETECT
+00B3 120000      E     LCALL   _I2CWrite
+                                           ; SOURCE LINE # 429
+00B6 E500        E     MOV     A,stGUD1+01H
+00B8 5407              ANL     A,#07H
+00BA FF                MOV     R7,A
+00BB 7800        E     MOV     R0,#LOW ucInputSrc
+00BD BF0204            CJNE    R7,#02H,?C0016
+                                           ; SOURCE LINE # 430
+                                           ; SOURCE LINE # 431
+00C0 7602              MOV     @R0,#02H
+                                           ; SOURCE LINE # 432
+00C2 8052              SJMP    ?C0030
+00C4         ?C0016:
+                                           ; SOURCE LINE # 434
+                                           ; SOURCE LINE # 435
+00C4 7605              MOV     @R0,#05H
+                                           ; SOURCE LINE # 442
+00C6 7A00        E     MOV     R2,#HIGH TV_SOURCE_SEL
+00C8 7900        E     MOV     R1,#LOW TV_SOURCE_SEL
+                                           ; SOURCE LINE # 443
+00CA 120000      R     LCALL   L?0032
+00CD 7A00        E     MOV     R2,#HIGH TV_SCAN_GAIN
+00CF 7900        E     MOV     R1,#LOW TV_SCAN_GAIN
+00D1 120000      E     LCALL   _I2CWrite
+                                           ; SOURCE LINE # 444
+00D4         ?C0017:
+                                           ; SOURCE LINE # 446
+                                           ; SOURCE LINE # 447
+                                           ; SOURCE LINE # 448
+00D4 8040              SJMP    ?C0030
+                                           ; SOURCE LINE # 450
+                                           ; SOURCE LINE # 452
+                                           ; SOURCE LINE # 453
+00D6         ?C0019:
+                                           ; SOURCE LINE # 456
+                                           ; SOURCE LINE # 460
+00D6 120000      R     LCALL   L?0033
+                                           ; SOURCE LINE # 466
+00D9 7BFF              MOV     R3,#0FFH
+00DB 7A00        E     MOV     R2,#HIGH SV_DETECT
+00DD 7900        E     MOV     R1,#LOW SV_DETECT
+00DF 120000      E     LCALL   _I2CWrite
+                                           ; SOURCE LINE # 468
+00E2 7800        E     MOV     R0,#LOW ucInputSrc
+00E4 7603              MOV     @R0,#03H
+                                           ; SOURCE LINE # 469
+00E6         ?C0029:
+                                           ; SOURCE LINE # 470
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 19  
+
+                                           ; SOURCE LINE # 471
+00E6 802E              SJMP    ?C0030
+                                           ; SOURCE LINE # 473
+00E8         ?C0020:
+                                           ; SOURCE LINE # 475
+                                           ; SOURCE LINE # 476
+00E8 C200        E     CLR     bSourceScanEnable
+                                           ; SOURCE LINE # 479
+00EA 120000      E     LCALL   PowerUp_VDC
+                                           ; SOURCE LINE # 483
+00ED 7F0A              MOV     R7,#0AH
+00EF 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 485
+00F2 7A00        E     MOV     R2,#HIGH V_ENABLE
+00F4 7900        E     MOV     R1,#LOW V_ENABLE
+                                           ; SOURCE LINE # 486
+00F6 120000      R     LCALL   L?0032
+00F9 7A00        E     MOV     R2,#HIGH VIDEO_ALL
+00FB 7900        E     MOV     R1,#LOW VIDEO_ALL
+00FD 120000      E     LCALL   _I2CWrite
+                                           ; SOURCE LINE # 487
+0100 7BFF              MOV     R3,#0FFH
+0102 7A00        E     MOV     R2,#HIGH VIDEO_YUV
+0104 7900        E     MOV     R1,#LOW VIDEO_YUV
+0106 120000      E     LCALL   _I2CWrite
+                                           ; SOURCE LINE # 489
+0109 7BFF              MOV     R3,#0FFH
+010B 7A00        E     MOV     R2,#HIGH YUV_DETECT
+010D 7900        E     MOV     R1,#LOW YUV_DETECT
+010F 120000      E     LCALL   _I2CWrite
+                                           ; SOURCE LINE # 491
+0112 7800        E     MOV     R0,#LOW ucInputSrc
+0114 7604              MOV     @R0,#04H
+                                           ; SOURCE LINE # 492
+0116         ?C0030:
+0116 7E00        E     MOV     R6,#HIGH VIDEO_INI
+0118 7F00        E     MOV     R7,#LOW VIDEO_INI
+011A 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 493
+011D 7B01              MOV     R3,#01H
+011F 7D1F              MOV     R5,#01FH
+0121 7F42              MOV     R7,#042H
+0123 120000      E     LCALL   _I2CRead
+                                           ; SOURCE LINE # 494
+                                           ; SOURCE LINE # 495
+0126         ?C0010:
+                                           ; SOURCE LINE # 498
+0126 020000      E     LJMP    SetVolume
+                                           ; SOURCE LINE # 500
+0129         L?0031:
+0129 120000      E     LCALL   PowerUp_VDC
+012C E4                CLR     A
+012D FB                MOV     R3,A
+012E 7DFC              MOV     R5,#0FCH
+0130 7FFF              MOV     R7,#0FFH
+0132 120000      E     LCALL   _RTDSetBit
+0135 22                RET     
+0136         L?0032:
+0136 7BFF              MOV     R3,#0FFH
+0138 120000      E     LCALL   _I2CWrite
+013B 7BFF              MOV     R3,#0FFH
+013D 22                RET     
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 20  
+
+013E         L?0033:
+013E 120000      E     LCALL   PowerUp_VDC
+0141 7F0A              MOV     R7,#0AH
+0143 120000      E     LCALL   _Delay_Xms
+0146 22                RET     
+0147         L?0036:
+0147 7BFF              MOV     R3,#0FFH
+0149 7A00        E     MOV     R2,#HIGH V_NOWORK
+014B 7900        E     MOV     R1,#LOW V_NOWORK
+014D 120000      E     LCALL   _I2CWrite
+0150 22                RET     
+             ; FUNCTION Init_Input_Source (END)
+
+             ; FUNCTION Power_Status_Init (BEGIN)
+                                           ; SOURCE LINE # 501
+                                           ; SOURCE LINE # 502
+                                           ; SOURCE LINE # 525
+0000 E500        E     MOV     A,stGUD1
+0002 20E325            JB      ACC.3,?C0023
+                                           ; SOURCE LINE # 526
+                                           ; SOURCE LINE # 527
+0005 D200        E     SETB    bPower_Status
+                                           ; SOURCE LINE # 529
+0007 E500        E     MOV     A,stGUD3+03H
+0009 20E303            JB      ACC.3,?C0025
+000C 30E506            JNB     ACC.5,?C0024
+000F         ?C0025:
+                                           ; SOURCE LINE # 530
+                                           ; SOURCE LINE # 531
+000F 5300F7      E     ANL     stGUD3+03H,#0F7H
+                                           ; SOURCE LINE # 532
+0012 120000      E     LCALL   Save_GUD3
+                                           ; SOURCE LINE # 533
+0015         ?C0024:
+                                           ; SOURCE LINE # 535
+0015 120000      R     LCALL   Power_Up_Init
+                                           ; SOURCE LINE # 538
+0018 C200        E     CLR     bStable
+                                           ; SOURCE LINE # 539
+001A D200        E     SETB    bReload
+                                           ; SOURCE LINE # 540
+001C C200        E     CLR     bFrameSync
+                                           ; SOURCE LINE # 541
+001E 7800        E     MOV     R0,#LOW ucModeCnt
+0020 7602              MOV     @R0,#02H
+                                           ; SOURCE LINE # 543
+0022 120000      E     LCALL   Measure_Mode
+                                           ; SOURCE LINE # 544
+0025 E4                CLR     A
+0026 FF                MOV     R7,A
+0027 020000      E     LJMP    _Set_Task
+                                           ; SOURCE LINE # 545
+002A         ?C0023:
+                                           ; SOURCE LINE # 547
+                                           ; SOURCE LINE # 548
+002A C200        E     CLR     bPower_Status
+                                           ; SOURCE LINE # 549
+                                           ; SOURCE LINE # 559
+002C         ?C0027:
+002C 22                RET     
+             ; FUNCTION Power_Status_Init (END)
+
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 21  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+P3 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B0H  1
+_Set_Task. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+Save_GUD3. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+ucModeCnt. . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_RTDOSDW . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Check_EEPROM . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 22  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+_RTDSetByte. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+M512_PadMode0. . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+PowerUp_VDC. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+M512_PadMode1. . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+M512_PadMode2. . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+ucInputSrc . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+M512_PadMode3. . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+V_NOWORK . . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+M512_PadMode4. . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+M512_PadMode5. . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+_RTDSetBit . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+M512_PadMode7. . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_I2CRead . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_RTDCodeW. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+YUV_DETECT . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+TV_SOURCE_SEL. . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+DVI_INI. . . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+RTD_IO_INI . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+Set_Bright_Contrast. . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+VGA_INI_SS . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+SetVolume. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bSourceScanEnable. . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+Power_Up_Init. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+Palette_Close. . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+_I2CWrite. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Set_Dithering. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+TV_SCAN_GAIN . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+VIDEO_ALL. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+AV_DETECT. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+SCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0098H  1
+TMOD . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0089H  1
+TCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0088H  1
+Firmware_Init. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+VIDEO_INI. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+bReload. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+Measure_Mode . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bPanel_Status. . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+ucMode_Found . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+bStable. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+SetADC_GainOffset. . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+ucID_Code. . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+SV_DETECT. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+PowerDown_TMDS . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+ucMode_Times . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+PowerDown_LVDS . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Palette_Open . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+_RTDRead . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+TF0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008DH  1
+TF1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008FH  1
+TH0. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008CH  1
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 23  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+OSD_Reset. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+TH1. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008DH  1
+TL0. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008AH  1
+Reset_RTD. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+TL1. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008BH  1
+M512_Port50. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+M512_Port51. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+PowerDown_ADC. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+OSD_PWUP_INI . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+TR0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008CH  1
+TR1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008EH  1
+ucAV_Mode. . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+FreeV. . . . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+RTD_PWUP_INI . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+bPower_Status. . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+MCU_Init . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+bHpole_Curr. . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+VIDEO_YUV. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+Init_Input_Source. . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+V_ENABLE . . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+ucMode_Curr. . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+RTD_DDC_TABLE. . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+C51 COMPILER V7.06   INITIAL                                                               11/21/2005 13:47:24 PAGE 24  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+T2CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+Palette_7. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+bVpole_Curr. . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+_Delay_Xms . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Power_Status_Init. . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+bFrameSync . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+PowerUp_TMDS . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Set_Gamma. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+M512_Option1 . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+ucPE_Max . . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+stGUD1 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  8
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+Data . . . . . . . . . . . . . . . . .  EXTERN   DATA   ARRAY    -----  16
+stGUD3 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  5
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+ucSync_Type. . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    800    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

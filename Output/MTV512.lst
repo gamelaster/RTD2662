@@ -1,0 +1,236 @@
+C51 COMPILER V7.06   MTV512                                                                11/21/2005 13:47:42 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE MTV512
+OBJECT MODULE PLACED IN .\Output\MTV512.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\MTV512.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PRIN
+                    -T(.\Output\MTV512.lst) PREPRINT(.\Output\MTV512.i) OBJECT(.\Output\MTV512.obj)
+
+stmt level    source
+
+   1          #include "Header\Main_def.h"
+   2          
+   3          //#if(MCU_TYPE == MCU_MTV512)           //anson
+   4          
+   5          #if(USE_MCU_DDC)
+              /* define these variable for MTV230M chip configuration */
+              //Byte xdata PRAM[128]      _at_ 0x0800;
+              
+              //**************************************************************
+              //                            Myson Addtion
+              //Create DDC RAM Address
+              unsigned char xdata byMTV512_DDCRAMA[128]   _at_ 0x0e00;  //DDCRAM1 
+              unsigned char xdata byMTV512_DDCRAMB[128]   _at_ 0x0e80;  //DDCRAM2
+              //**************************************************************
+              
+              //******************************************************
+              //                         Myson Addtion
+              unsigned char xdata byM512_CTRSLVB    _at_ 0xF0A;
+              //******************************************************
+              
+              //******************************************************
+              //                         Myson Revise
+              //Byte xdata byM212_IIC_TXRCABUF   _at_ 0xF06;
+              unsigned char xdata byM512_DDCCTRA1   _at_ 0xF06;
+              //******************************************************
+              //******************************************************
+              //                         Myson Addtion
+              unsigned char xdata  byM512_DDCCTRA2    _at_  0x0F86;
+              unsigned char xdata  byM512_SLVA2ADR     _at_  0x0F87;
+              //******************************************************
+              //                         Myson Revise
+              //Byte xdata byM212_IIC_SLVAADR    _at_ 0xF07;
+              unsigned char xdata byM512_SLVA1ADR    _at_ 0xF07;
+              //******************************************************
+              
+              //******************************************************
+              //                         Myson Addtion
+              unsigned char xdata byM512_CTRSLVB    _at_ 0xF0A;
+              //******************************************************
+              #endif
+  41          
+  42          
+  43          //Xdata use DPTR instruction
+  44          //Pdata use MOVX instruction set at BL51 Code/banking linker>size/location
+  45          unsigned char xdata M512_PadMode0  _at_  0xF50;
+  46          unsigned char xdata M512_PadMode1  _at_  0xF51;
+  47          unsigned char xdata M512_PadMode2  _at_  0xF52;
+  48          unsigned char xdata M512_PadMode3  _at_  0xF53;
+  49          unsigned char xdata M512_PadMode4  _at_  0xF54;
+  50          unsigned char xdata M512_PadMode5  _at_  0xF55;
+  51          unsigned char xdata M512_Option1   _at_ 0xF56;
+  52          unsigned char xdata M512_PadMode6  _at_ 0xF5E; //DWL 1219
+  53          unsigned char xdata M512_PadMode7  _at_ 0xF5F; //DWL 1219
+  54          
+C51 COMPILER V7.06   MTV512                                                                11/21/2005 13:47:42 PAGE 2   
+
+  55          unsigned char xdata M512_Port40    _at_ 0xF58;
+  56          unsigned char xdata M512_Port41    _at_ 0xF59;
+  57          unsigned char xdata M512_Port42    _at_ 0xF5A;
+  58          
+  59          
+  60          
+  61          unsigned char xdata M512_Port50    _at_ 0xF30;
+  62          //#define  bPANEL_PWR  byM212_Port50
+  63          unsigned char xdata M512_Port51    _at_ 0xF31;
+  64          unsigned char xdata M512_Port52    _at_ 0xF32;
+  65          unsigned char xdata M512_Port53    _at_ 0xF33;
+  66          unsigned char xdata M512_Port54    _at_ 0xF34;
+  67          unsigned char xdata M512_Port55    _at_ 0xF35;
+  68          unsigned char xdata M512_Port56    _at_ 0xF36;
+  69          
+  70          unsigned char xdata M512_Port60    _at_ 0xF38;
+  71          unsigned char xdata M512_Port61    _at_ 0xF39;
+  72          unsigned char xdata M512_Port62    _at_ 0xF3A;
+  73          unsigned char xdata M512_Port63    _at_ 0xF3B;
+  74          unsigned char xdata M512_Port64    _at_ 0xF3C;
+  75          unsigned char xdata M512_Port65    _at_ 0xF3D;
+  76          unsigned char xdata M512_Port66    _at_ 0xF3E;
+  77          unsigned char xdata M512_Port67    _at_ 0xF3F;
+  78          
+  79          unsigned char xdata M512_Port76    _at_ 0xF76;//dwl 1219
+  80          unsigned char xdata M512_Port77    _at_ 0xF77;//dwl 1219
+  81          
+  82          // define MTV212M's PWM DAC register
+  83          unsigned char xdata M512_DA0        _at_ 0xF20;
+  84          unsigned char xdata M512_DA1        _at_ 0xF21;
+  85          unsigned char xdata M512_DA2        _at_ 0xF22;
+  86          unsigned char xdata M512_DA3        _at_ 0xF23;
+  87          unsigned char xdata M512_DA4        _at_ 0xF24;
+  88          unsigned char xdata M512_DA5        _at_ 0xF25;
+  89          unsigned char xdata M512_DA6        _at_ 0xF26;
+  90          unsigned char xdata M512_DA7        _at_ 0xF27;
+  91          unsigned char xdata M512_DA8        _at_ 0xF28;
+  92          unsigned char xdata M512_DA9        _at_ 0xF29;
+  93          unsigned char xdata M512_DA10       _at_ 0xF2A;
+  94          unsigned char xdata M512_DA11       _at_ 0xF2B;
+  95          unsigned char xdata M512_DA12       _at_ 0xF2C;
+  96          unsigned char xdata M512_DA13       _at_ 0xF2D;
+  97          
+  98          //define MTV212M's H/VSync processor register
+  99          unsigned char xdata M512_HVSTUS    _at_ 0xF40;
+ 100          unsigned char xdata M512_HCNTH     _at_ 0xF41;
+ 101          unsigned char xdata M512_HCNTL     _at_ 0xF42;
+ 102          unsigned char xdata M512_VCNTH     _at_ 0xF43;
+ 103          unsigned char xdata M512_VCNTL     _at_ 0xF44;
+ 104          
+ 105          unsigned char xdata M512_INTFLG    _at_ 0xF48;
+ 106          unsigned char xdata M512_INTEN     _at_ 0xF49;
+ 107          
+ 108          //define MTV212's IIC's control
+ 109          unsigned char xdata M512_IIC_CTR        _at_ 0xF00;
+ 110          unsigned char xdata M512_IIC_STUS1      _at_ 0xF01;
+ 111          unsigned char xdata M512_IIC_STUS2      _at_ 0xF02;
+ 112          unsigned char xdata M512_IIC_INTFLG        _at_ 0xF03;
+ 113          unsigned char xdata M512_IIC_INTEN         _at_ 0xF04;
+ 114          unsigned char xdata M512_IIC_MBUF             _at_ 0xF05;
+ 115          //unsigned char xdata M512_IIC_TXRCABUF   _at_ 0xF06;
+ 116          //unsigned char xdata M512_IIC_SLVAADR    _at_ 0xF07;
+C51 COMPILER V7.06   MTV512                                                                11/21/2005 13:47:42 PAGE 3   
+
+ 117          unsigned char xdata M512_IIC_TXRCBBUF   _at_ 0xF08;
+ 118          unsigned char xdata M512_IIC_SLVBADR    _at_ 0xF09;
+ 119          //unsigned char xdata byM212_IIC_DBUF     _at_ 0xF0A;
+ 120          unsigned char xdata M512_ISPSLV         _at_ 0xF0B;
+ 121          unsigned char xdata M512_ISPEN          _at_ 0xF0C;
+ 122          
+ 123          //define MTV212's A/D converter
+ 124          //unsigned char xdata byM212_ADC            _at_ 0xF10;
+ 125          unsigned char xdata M512_ADC        _at_ 0xF10;
+ 126          unsigned char xdata M512_WDT        _at_ 0xF18;
+ 127          unsigned char xdata EINT1PEN        _at_ 0xF8E; 
+ 128          //#endif                                        //anson
+C51 COMPILER V7.06   MTV512                                                                11/21/2005 13:47:42 PAGE 4   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+C51 COMPILER V7.06   MTV512                                                                11/21/2005 13:47:42 PAGE 5   
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+M512_IIC_STUS1 . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F01H  1
+M512_DA3 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F23H  1
+M512_IIC_STUS2 . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F02H  1
+M512_DA4 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F24H  1
+M512_DA5 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F25H  1
+M512_DA6 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F26H  1
+M512_DA7 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F27H  1
+M512_DA8 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F28H  1
+M512_DA9 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F29H  1
+M512_INTFLG. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F48H  1
+M512_IIC_SLVBADR . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F09H  1
+M512_ADC . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F10H  1
+M512_PadMode0. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F50H  1
+M512_PadMode1. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F51H  1
+M512_PadMode2. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F52H  1
+M512_PadMode3. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F53H  1
+M512_PadMode4. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F54H  1
+M512_PadMode5. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F55H  1
+M512_PadMode6. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F5EH  1
+M512_PadMode7. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F5FH  1
+M512_IIC_MBUF. . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F05H  1
+M512_ISPSLV. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F0BH  1
+M512_DA10. . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F2AH  1
+M512_DA11. . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F2BH  1
+M512_DA12. . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F2CH  1
+M512_DA13. . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F2DH  1
+M512_WDT . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F18H  1
+M512_HVSTUS. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F40H  1
+M512_HCNTH . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F41H  1
+M512_HCNTL . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F42H  1
+M512_IIC_INTFLG. . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F03H  1
+M512_INTEN . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F49H  1
+EINT1PEN . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F8EH  1
+M512_ISPEN . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F0CH  1
+M512_VCNTH . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F43H  1
+M512_VCNTL . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F44H  1
+M512_Port40. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F58H  1
+M512_Port50. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F30H  1
+M512_Port41. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F59H  1
+M512_Port60. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F38H  1
+M512_Port51. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F31H  1
+M512_Port42. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F5AH  1
+M512_Port61. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F39H  1
+M512_Port52. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F32H  1
+M512_Port62. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F3AH  1
+M512_Port53. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F33H  1
+M512_Port63. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F3BH  1
+M512_Port54. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F34H  1
+M512_Port64. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F3CH  1
+M512_Port55. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F35H  1
+M512_Port65. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F3DH  1
+M512_Port56. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F36H  1
+M512_Port66. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F3EH  1
+M512_Port76. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F76H  1
+M512_Port67. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F3FH  1
+M512_Port77. . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F77H  1
+M512_IIC_TXRCBBUF. . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F08H  1
+C51 COMPILER V7.06   MTV512                                                                11/21/2005 13:47:42 PAGE 6   
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+M512_IIC_CTR . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F00H  1
+M512_Option1 . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F56H  1
+M512_DA0 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F20H  1
+M512_IIC_INTEN . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F04H  1
+M512_DA1 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F21H  1
+M512_DA2 . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0F22H  1
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

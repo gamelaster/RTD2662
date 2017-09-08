@@ -1,0 +1,850 @@
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE POWER_CTRL
+OBJECT MODULE PLACED IN .\Output\Power_Ctrl.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Power_Ctrl.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS 
+                    -PRINT(.\Output\Power_Ctrl.lst) PREPRINT(.\Output\Power_Ctrl.i) OBJECT(.\Output\Power_Ctrl.obj)
+
+stmt level    source
+
+   1          #define __POWERCTRL__
+   2          
+   3          #include "Header\Lcd_main.h"
+   4          #include "Header\access.h"
+   5          #include "Header\config.h"
+   6          #include "Header\Osd.h"
+   7          #include "Header\Initial.h"
+   8          #include "Header\Lcd_msg.h"
+   9          #include "Header\Frame_Sync.h"
+  10          #include "Header\Lcd_func.h"
+  11          #include "Header\Font.h"
+  12          
+  13          
+  14          void PowerDown_ADC(void)
+  15          {
+  16   1          RTDSetByte(PLL1_CTRL_D6, 0xf2);     // Power down PLL1
+  17   1          RTDSetByte(PLL2_CTRL_DA, 0x40);     // Power down PLL2
+  18   1          RTDSetByte(ADC_CTRL_E6, 0x40);      // Power down ADC
+  19   1      }
+  20          
+  21          void PowerUp_ADC(void)
+  22          {
+  23   1          RTDSetByte(PLL1_CTRL_D6, 0xf3);     // Power up PLL1
+  24   1          RTDSetByte(PLL2_CTRL_DA, 0x41);     // Power up PLL2
+  25   1          RTDSetByte(ADC_CTRL_E6, 0x47);      // Power up ADC
+  26   1      
+  27   1      
+  28   1          RTDSetByte(PLL2_FILTER_DD, 0x5f);
+  29   1      
+  30   1      }
+  31          
+  32          void PowerDown_TMDS(void)
+  33          {
+  34   1          RTDSetByte(TMDS_OUTPUT_ENA_A0, 0x0F);    
+  35   1      }
+  36          
+  37          void PowerUp_TMDS(void)
+  38          {
+  39   1         RTDSetByte(TMDS_OUTPUT_ENA_A0, 0x8F);
+  40   1      }
+  41          
+  42          
+  43          void PowerDown_VDC(void)
+  44          {
+  45   1      #if (VIDEO_CHIP != VDC_NONE)
+              
+              #if(MCU_TYPE == MCU_WINBOND)
+                  bVDC_PWR    = VDC_OFF;
+              #else
+                  MCU_WriteVideoPower(VDC_OFF);
+              #endif
+              
+              #endif
+  54   1      }
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 2   
+
+  55          
+  56          void PowerUp_VDC(void)
+  57          {
+  58   1      #if (VIDEO_CHIP != VDC_NONE)
+              
+              #if(MCU_TYPE == MCU_WINBOND)
+                   bVDC_PWR    = VDC_ON;
+              #else
+                   MCU_WriteVideoPower(VDC_ON);
+              #endif
+              
+              #endif
+  67   1      }
+  68          
+  69          void PowerDown_LVDS(void)
+  70          {
+  71   1      #if (OUTPUT_BUS == LVDS_TYPE)
+  72   1      RTDCodeW(LVDS_POWERDOWN);
+  73   1      #endif
+  74   1      }
+  75          
+  76          void PowerUp_LVDS(void)
+  77          {
+  78   1      #if (OUTPUT_BUS == LVDS_TYPE)
+  79   1      RTDCodeW(LVDS_POWERUP);
+  80   1      #endif
+  81   1      }
+  82          
+  83          void Set_Panel(unsigned char status)
+  84          {
+  85   1          if (status)
+  86   1          {
+  87   2              PowerUp_LVDS();
+  88   2                      //Device_Power(LVDS_POWER,ON);
+  89   2      
+  90   2              Delay_Xms(10);
+  91   2      
+  92   2      
+  93   2              RTDSetByte(VDIS_SIGINV_21, 0x00 | DISP_EO_SWAP | DISP_RB_SWAP | DISP_ML_SWAP);       // DHS, DVS, 
+             -DEN, DCLK MUST NOT be inverted.
+  94   2      
+  95   2              RTDSetBit(VDIS_CTRL_20, 0xfd, 0x01);    // DHS, DVS, DEN, DCLK and data are clamped to 0
+  96   2              Delay_Xms(20);
+  97   2              RTDSetBit(VDIS_CTRL_20, 0xfe, 0x00);    // Stop display timing
+  98   2              Delay_Xms(20);
+  99   2      
+ 100   2      #if(MCU_TYPE == MCU_WINBOND)
+ 101   2              bPANEL_PWR  = PANEL_ON;
+ 102   2      #else
+                      MCU_WritePanelPower(PANEL_ON);
+              #endif
+ 105   2              bPanel_Status = _ON;
+ 106   2      
+ 107   2              
+ 108   2              Delay_Xms(40);
+ 109   2                      
+ 110   2      
+ 111   2      
+ 112   2              RTDSetByte(VDIS_SIGINV_21, DISP_INV | DISP_EO_SWAP | DISP_RB_SWAP | DISP_ML_SWAP);       // DHS, D
+             -VS, DEN, DCLK MUST NOT be inverted.
+ 113   2      
+ 114   2              RTDSetBit(VDIS_CTRL_20, 0xff, 0x03);    // DHS, DVS, DEN, DCLK in normal operation
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 3   
+
+ 115   2              
+ 116   2              RTDSetBit(DIS_TIMING0_3A, 0xff, 0x20);  // Force display timing enable
+ 117   2              RTDSetBit(DIS_TIMING0_3A, 0xdf, 0x00);  // Stop forcing
+ 118   2      
+ 119   2              //Delay_Xms(200);
+ 120   2              //Delay_Xms(200);
+ 121   2              Load_VLC_Font(Font_Global, 0x00, 0xa1);
+ 122   2              if( (stGUD1.FUNCTION & 0x07) == JAPANESS )
+ 123   2              {
+ 124   3                      Load_VLC_Font(Font_East_J, 0x573, 0x4B);
+ 125   3              }
+ 126   2              else
+ 127   2              {
+ 128   3                      Load_VLC_Font(Font_East_C, 0x5a9, 0x45);
+ 129   3              }
+ 130   2              Load_VLC_Font(Font_Icons, 0x828, 0x70);
+ 131   2              Load_VLC_Font(Font_add, 0x20a, 0x06);                           //anson   3A(addr)  x  9  = 20A
+ 132   2                                                                                                                      //   12 x18 / 8 /3 = 9
+ 133   2              RTDSetByte(STATUS0_01, 0x00);  // Write once to clear status
+ 134   2              RTDSetByte(STATUS1_1F, 0x00);  // Write once to clear status
+ 135   2      
+ 136   2              
+ 137   2      #if(MCU_TYPE == MCU_WINBOND)
+ 138   2              bLIGHT_PWR  = LIGHT_ON;
+ 139   2      #else
+                      MCU_WriteBacklightPower(LIGHT_ON);
+              #endif
+ 142   2      
+ 143   2          }
+ 144   1          else
+ 145   1          {
+ 146   2      #if(MCU_TYPE == MCU_WINBOND)
+ 147   2              bLIGHT_PWR  = LIGHT_OFF;
+ 148   2      #else
+                      MCU_WriteBacklightPower(LIGHT_OFF);
+              #endif
+ 151   2      
+ 152   2              Delay_Xms(120);
+ 153   2      
+ 154   2              RTDOSDW(OSD_Reset);
+ 155   2      
+ 156   2      
+ 157   2              RTDSetByte(VDIS_SIGINV_21, 0x00 | DISP_EO_SWAP | DISP_RB_SWAP | DISP_ML_SWAP);       // DHS, DVS, 
+             -DEN, DCLK MUST NOT be inverted.
+ 158   2      
+ 159   2              RTDSetBit(VDIS_CTRL_20, 0xfd, 0x01);    // DHS, DVS, DEN, DCLK and data are clamped to 0
+ 160   2              Delay_Xms(20);
+ 161   2              RTDSetBit(VDIS_CTRL_20, 0xfe, 0x00);    // Stop display timing
+ 162   2              Delay_Xms(20);
+ 163   2      #if(MCU_TYPE == MCU_WINBOND)     
+ 164   2              bPANEL_PWR  = PANEL_OFF;
+ 165   2      #else
+                      MCU_WritePanelPower(PANEL_OFF);
+              #endif
+ 168   2              bPanel_Status = _OFF;
+ 169   2              Delay_Xms(40);
+ 170   2      
+ 171   2              PowerDown_LVDS();
+ 172   2                      //Device_Power(LVDS_POWER,OFF);
+ 173   2          }
+ 174   1      }
+ 175          
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 4   
+
+ 176                      //////////////////////
+ 177                      // Power Controller //
+ 178                      //////////////////////
+ 179          bit Power_Control(unsigned char Notify)
+ 180          {
+ 181   1                  if (0 == bPower_Status)
+ 182   1                  {
+ 183   2      
+ 184   2                      if (NOTIFY_POWERUP == Notify)
+ 185   2                      {
+ 186   3                          bPower_Status   = 1;
+ 187   3      
+ 188   3                          Power_Up_Init();
+ 189   3                          ISP_Check_Sum();
+ 190   3      
+ 191   3                          bStable     = 0;                    // Assume input signal is not stable when power up
+ 192   3                          bReload     = 1;                    // Always reload font when power up
+ 193   3                          bFrameSync  = 0;                    // Not sync yet
+ 194   3                          ucModeCnt   = MODE_DETECT_FREQ;     // Reset Input Mode Detector
+ 195   3                          
+ 196   3                          Measure_Mode();                     // Measure mode-timing
+ 197   3                          Set_Task(STATE_POWERUP);            // Notify Task State Machine
+ 198   3      #if (RTDDEBUG)
+                                  ucMode_PrevAct  = MODE_NOSIGNAL;
+                                  ucMode_QuitCnt  = 0;
+                                  ucDebug         = 0;
+              #endif
+ 203   3      
+ 204   3      #if (POWER_KEY_TYPE == TYPE_ONE_TOUCH)
+ 205   3                          // Save power status when power-key is one-touch type
+ 206   3                          stGUD1.FUNCTION &= 0xf7;
+ 207   3                          Save_GUD1();
+ 208   3                          Delay_Xms(10);
+ 209   3      #endif
+ 210   3                      }
+ 211   2      
+ 212   2                      bNotify_Timer0_Int  = 0;
+ 213   2      
+ 214   2      //               continue;   // leave current iteration.
+ 215   2                       return _TRUE;
+ 216   2                  }
+ 217   1                  else if (NOTIFY_POWERDOWN == Notify)
+ 218   1                  {
+ 219   2      #if (POWER_KEY_TYPE == TYPE_ONE_TOUCH)
+ 220   2                      // Save power status when power-key is one-touch type
+ 221   2                      stGUD1.FUNCTION |= 0x08;
+ 222   2                      Save_GUD1();
+ 223   2                      Delay_Xms(10);
+ 224   2      #endif
+ 225   2                      bPower_Status   = 0;
+ 226   2      
+ 227   2                      Set_Panel(0);                   // Turn off panel
+ 228   2                      SetMute(0);
+ 229   2      
+ 230   2                      RTDSetByte(HOSTCTRL_02, 0x42);  // Set RTD to power-saving
+ 231   2      
+ 232   2                      I2CWrite(V_DISABLE);
+ 233   2      
+ 234   2                      PowerDown_ADC();
+ 235   2                      PowerDown_VDC();
+ 236   2                      PowerDown_TMDS();
+ 237   2                                      
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 5   
+
+ 238   2      
+ 239   2                      Delay_Xms(250);
+ 240   2                      Delay_Xms(250);
+ 241   2                      Delay_Xms(250);
+ 242   2                      Delay_Xms(250);
+ 243   2                      Delay_Xms(250);
+ 244   2      
+ 245   2                      Set_Task(STATE_POWERDOWN);      // Notify Task State Machine
+ 246   2      
+ 247   2                      bNotify_Timer0_Int  = 0;
+ 248   2      
+ 249   2                      //continue;   // leave current iteration.
+ 250   2                                      return _TRUE;
+ 251   2                  }
+ 252   1                              return _FALSE;
+ 253   1      }
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 6   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION PowerDown_ADC (BEGIN)
+                                           ; SOURCE LINE # 14
+                                           ; SOURCE LINE # 15
+                                           ; SOURCE LINE # 16
+0000 7DF2              MOV     R5,#0F2H
+0002 7FD6              MOV     R7,#0D6H
+0004 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 17
+0007 7D40              MOV     R5,#040H
+0009 7FDA              MOV     R7,#0DAH
+000B 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 18
+000E 7D40              MOV     R5,#040H
+0010 7FE6              MOV     R7,#0E6H
+0012 020000      E     LJMP    _RTDSetByte
+             ; FUNCTION PowerDown_ADC (END)
+
+             ; FUNCTION PowerUp_ADC (BEGIN)
+                                           ; SOURCE LINE # 21
+                                           ; SOURCE LINE # 22
+                                           ; SOURCE LINE # 23
+0000 7DF3              MOV     R5,#0F3H
+0002 7FD6              MOV     R7,#0D6H
+0004 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 24
+0007 7D41              MOV     R5,#041H
+0009 7FDA              MOV     R7,#0DAH
+000B 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 25
+000E 7D47              MOV     R5,#047H
+0010 7FE6              MOV     R7,#0E6H
+0012 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 28
+0015 7D5F              MOV     R5,#05FH
+0017 7FDD              MOV     R7,#0DDH
+0019 020000      E     LJMP    _RTDSetByte
+             ; FUNCTION PowerUp_ADC (END)
+
+             ; FUNCTION PowerDown_TMDS (BEGIN)
+                                           ; SOURCE LINE # 32
+                                           ; SOURCE LINE # 33
+                                           ; SOURCE LINE # 34
+0000 7D0F              MOV     R5,#0FH
+0002 7FA0              MOV     R7,#0A0H
+0004 020000      E     LJMP    _RTDSetByte
+             ; FUNCTION PowerDown_TMDS (END)
+
+             ; FUNCTION PowerUp_TMDS (BEGIN)
+                                           ; SOURCE LINE # 37
+                                           ; SOURCE LINE # 38
+                                           ; SOURCE LINE # 39
+0000 7D8F              MOV     R5,#08FH
+0002 7FA0              MOV     R7,#0A0H
+0004 020000      E     LJMP    _RTDSetByte
+             ; FUNCTION PowerUp_TMDS (END)
+
+             ; FUNCTION PowerDown_VDC (BEGIN)
+                                           ; SOURCE LINE # 43
+                                           ; SOURCE LINE # 44
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 7   
+
+                                           ; SOURCE LINE # 54
+0000 22                RET     
+             ; FUNCTION PowerDown_VDC (END)
+
+             ; FUNCTION PowerUp_VDC (BEGIN)
+                                           ; SOURCE LINE # 56
+                                           ; SOURCE LINE # 57
+                                           ; SOURCE LINE # 67
+0000 22                RET     
+             ; FUNCTION PowerUp_VDC (END)
+
+             ; FUNCTION PowerDown_LVDS (BEGIN)
+                                           ; SOURCE LINE # 69
+                                           ; SOURCE LINE # 70
+                                           ; SOURCE LINE # 72
+0000 7E00        E     MOV     R6,#HIGH LVDS_POWERDOWN
+0002 7F00        E     MOV     R7,#LOW LVDS_POWERDOWN
+0004 020000      E     LJMP    _RTDCodeW
+             ; FUNCTION PowerDown_LVDS (END)
+
+             ; FUNCTION PowerUp_LVDS (BEGIN)
+                                           ; SOURCE LINE # 76
+                                           ; SOURCE LINE # 77
+                                           ; SOURCE LINE # 79
+0000 7E00        E     MOV     R6,#HIGH LVDS_POWERUP
+0002 7F00        E     MOV     R7,#LOW LVDS_POWERUP
+0004 020000      E     LJMP    _RTDCodeW
+             ; FUNCTION PowerUp_LVDS (END)
+
+             ; FUNCTION _Set_Panel (BEGIN)
+                                           ; SOURCE LINE # 83
+;---- Variable 'status' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 84
+                                           ; SOURCE LINE # 85
+0000 EF                MOV     A,R7
+0001 7003              JNZ     $ + 5H
+0003 020000      R     LJMP    ?C0009
+                                           ; SOURCE LINE # 86
+                                           ; SOURCE LINE # 87
+0006 120000      R     LCALL   PowerUp_LVDS
+                                           ; SOURCE LINE # 90
+0009 7F0A              MOV     R7,#0AH
+000B 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 93
+                                           ; SOURCE LINE # 95
+                                           ; SOURCE LINE # 96
+                                           ; SOURCE LINE # 97
+                                           ; SOURCE LINE # 98
+000E 120000      R     LCALL   L?0021
+                                           ; SOURCE LINE # 101
+0011 E4                CLR     A
+0012 900000      E     MOV     DPTR,#M512_Port50
+0015 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 105
+0016 D200        R     SETB    bPanel_Status
+                                           ; SOURCE LINE # 108
+0018 7F28              MOV     R7,#028H
+001A 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 112
+001D 7D0C              MOV     R5,#0CH
+001F 7F21              MOV     R7,#021H
+0021 120000      E     LCALL   _RTDSetByte
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 8   
+
+                                           ; SOURCE LINE # 114
+0024 7B03              MOV     R3,#03H
+0026 7DFF              MOV     R5,#0FFH
+0028 7F20              MOV     R7,#020H
+002A 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 116
+002D 7B20              MOV     R3,#020H
+002F 7DFF              MOV     R5,#0FFH
+0031 7F3A              MOV     R7,#03AH
+0033 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 117
+0036 E4                CLR     A
+0037 FB                MOV     R3,A
+0038 7DDF              MOV     R5,#0DFH
+003A 7F3A              MOV     R7,#03AH
+003C 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 121
+003F 7E00        E     MOV     R6,#HIGH Font_Global
+0041 7F00        E     MOV     R7,#LOW Font_Global
+0043 7BA1              MOV     R3,#0A1H
+0045 7A00              MOV     R2,#00H
+0047 E4                CLR     A
+0048 FD                MOV     R5,A
+0049 FC                MOV     R4,A
+004A 120000      E     LCALL   _Load_VLC_Font
+                                           ; SOURCE LINE # 122
+004D E500        E     MOV     A,stGUD1
+004F 5407              ANL     A,#07H
+0051 FF                MOV     R7,A
+0052 BF070C            CJNE    R7,#07H,?C0010
+                                           ; SOURCE LINE # 123
+                                           ; SOURCE LINE # 124
+0055 7E00        E     MOV     R6,#HIGH Font_East_J
+0057 7F00        E     MOV     R7,#LOW Font_East_J
+0059 7B4B              MOV     R3,#04BH
+005B 7A00              MOV     R2,#00H
+005D 7D73              MOV     R5,#073H
+                                           ; SOURCE LINE # 125
+005F 800A              SJMP    ?C0019
+0061         ?C0010:
+                                           ; SOURCE LINE # 127
+                                           ; SOURCE LINE # 128
+0061 7E00        E     MOV     R6,#HIGH Font_East_C
+0063 7F00        E     MOV     R7,#LOW Font_East_C
+0065 7B45              MOV     R3,#045H
+0067 7A00              MOV     R2,#00H
+0069 7DA9              MOV     R5,#0A9H
+006B         ?C0019:
+006B 7C05              MOV     R4,#05H
+006D 120000      E     LCALL   _Load_VLC_Font
+                                           ; SOURCE LINE # 129
+0070         ?C0011:
+                                           ; SOURCE LINE # 130
+0070 7E00        E     MOV     R6,#HIGH Font_Icons
+0072 7F00        E     MOV     R7,#LOW Font_Icons
+0074 7B70              MOV     R3,#070H
+0076 7A00              MOV     R2,#00H
+0078 7D28              MOV     R5,#028H
+007A 7C08              MOV     R4,#08H
+007C 120000      E     LCALL   _Load_VLC_Font
+                                           ; SOURCE LINE # 131
+007F 7E00        E     MOV     R6,#HIGH Font_add
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 9   
+
+0081 7F00        E     MOV     R7,#LOW Font_add
+0083 7B06              MOV     R3,#06H
+0085 7A00              MOV     R2,#00H
+0087 7D0A              MOV     R5,#0AH
+0089 7C02              MOV     R4,#02H
+008B 120000      E     LCALL   _Load_VLC_Font
+                                           ; SOURCE LINE # 133
+008E E4                CLR     A
+008F FD                MOV     R5,A
+0090 7F01              MOV     R7,#01H
+0092 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 134
+0095 E4                CLR     A
+0096 FD                MOV     R5,A
+0097 7F1F              MOV     R7,#01FH
+0099 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 138
+009C E4                CLR     A
+009D 900000      E     MOV     DPTR,#M512_Port51
+00A0 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 143
+00A1 22                RET     
+00A2         ?C0009:
+                                           ; SOURCE LINE # 145
+                                           ; SOURCE LINE # 147
+00A2 900000      E     MOV     DPTR,#M512_Port51
+00A5 7401              MOV     A,#01H
+00A7 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 152
+00A8 7F78              MOV     R7,#078H
+00AA 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 154
+00AD 7E00        E     MOV     R6,#HIGH OSD_Reset
+00AF 7F00        E     MOV     R7,#LOW OSD_Reset
+00B1 120000      E     LCALL   _RTDOSDW
+                                           ; SOURCE LINE # 157
+                                           ; SOURCE LINE # 159
+                                           ; SOURCE LINE # 160
+                                           ; SOURCE LINE # 161
+                                           ; SOURCE LINE # 162
+00B4 120000      R     LCALL   L?0021
+                                           ; SOURCE LINE # 164
+00B7 900000      E     MOV     DPTR,#M512_Port50
+00BA 7401              MOV     A,#01H
+00BC F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 168
+00BD C200        R     CLR     bPanel_Status
+                                           ; SOURCE LINE # 169
+00BF 7F28              MOV     R7,#028H
+00C1 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 171
+00C4 120000      R     LCALL   PowerDown_LVDS
+                                           ; SOURCE LINE # 173
+                                           ; SOURCE LINE # 174
+00C7         ?C0013:
+00C7 22                RET     
+00C8         L?0021:
+00C8 E4                CLR     A
+00C9 FD                MOV     R5,A
+00CA 7F21              MOV     R7,#021H
+00CC 120000      E     LCALL   _RTDSetByte
+00CF 7B01              MOV     R3,#01H
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 10  
+
+00D1 7DFD              MOV     R5,#0FDH
+00D3 7F20              MOV     R7,#020H
+00D5 120000      E     LCALL   _RTDSetBit
+00D8 7F14              MOV     R7,#014H
+00DA 120000      E     LCALL   _Delay_Xms
+00DD E4                CLR     A
+00DE FB                MOV     R3,A
+00DF 7DFE              MOV     R5,#0FEH
+00E1 7F20              MOV     R7,#020H
+00E3 120000      E     LCALL   _RTDSetBit
+00E6 7F14              MOV     R7,#014H
+00E8 120000      E     LCALL   _Delay_Xms
+00EB 22                RET     
+             ; FUNCTION _Set_Panel (END)
+
+             ; FUNCTION _Power_Control (BEGIN)
+                                           ; SOURCE LINE # 179
+0000 8F00        R     MOV     Notify,R7
+                                           ; SOURCE LINE # 180
+                                           ; SOURCE LINE # 181
+0002 20002D      R     JB      bPower_Status,?C0014
+                                           ; SOURCE LINE # 182
+                                           ; SOURCE LINE # 184
+0005 E500        R     MOV     A,Notify
+0007 6480              XRL     A,#080H
+0009 707B              JNZ     ?C0020
+                                           ; SOURCE LINE # 185
+                                           ; SOURCE LINE # 186
+000B D200        R     SETB    bPower_Status
+                                           ; SOURCE LINE # 188
+000D 120000      E     LCALL   Power_Up_Init
+                                           ; SOURCE LINE # 189
+0010 120000      E     LCALL   ISP_Check_Sum
+                                           ; SOURCE LINE # 191
+0013 C200        E     CLR     bStable
+                                           ; SOURCE LINE # 192
+0015 D200        E     SETB    bReload
+                                           ; SOURCE LINE # 193
+0017 C200        E     CLR     bFrameSync
+                                           ; SOURCE LINE # 194
+0019 7800        E     MOV     R0,#LOW ucModeCnt
+001B 7602              MOV     @R0,#02H
+                                           ; SOURCE LINE # 196
+001D 120000      E     LCALL   Measure_Mode
+                                           ; SOURCE LINE # 197
+0020 E4                CLR     A
+0021 FF                MOV     R7,A
+0022 120000      E     LCALL   _Set_Task
+                                           ; SOURCE LINE # 206
+0025 5300F7      E     ANL     stGUD1,#0F7H
+                                           ; SOURCE LINE # 207
+0028 120000      E     LCALL   Save_GUD1
+                                           ; SOURCE LINE # 208
+002B 7F0A              MOV     R7,#0AH
+002D 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 210
+0030         ?C0015:
+                                           ; SOURCE LINE # 212
+                                           ; SOURCE LINE # 215
+0030 8054              SJMP    ?C0020
+                                           ; SOURCE LINE # 216
+0032         ?C0014:
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 11  
+
+                                           ; SOURCE LINE # 217
+0032 E500        R     MOV     A,Notify
+0034 6481              XRL     A,#081H
+0036 7052              JNZ     ?C0017
+                                           ; SOURCE LINE # 218
+                                           ; SOURCE LINE # 221
+0038 430008      E     ORL     stGUD1,#08H
+                                           ; SOURCE LINE # 222
+003B 120000      E     LCALL   Save_GUD1
+                                           ; SOURCE LINE # 223
+003E 7F0A              MOV     R7,#0AH
+0040 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 225
+0043 C200        R     CLR     bPower_Status
+                                           ; SOURCE LINE # 227
+0045 E4                CLR     A
+0046 FF                MOV     R7,A
+0047 120000      R     LCALL   _Set_Panel
+                                           ; SOURCE LINE # 228
+004A C200        E     CLR     ?SetMute?BIT
+004C 120000      E     LCALL   SetMute
+                                           ; SOURCE LINE # 230
+004F 7D42              MOV     R5,#042H
+0051 7F02              MOV     R7,#02H
+0053 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 232
+0056 7BFF              MOV     R3,#0FFH
+0058 7A00        E     MOV     R2,#HIGH V_DISABLE
+005A 7900        E     MOV     R1,#LOW V_DISABLE
+005C 120000      E     LCALL   _I2CWrite
+                                           ; SOURCE LINE # 234
+005F 120000      R     LCALL   PowerDown_ADC
+                                           ; SOURCE LINE # 235
+0062 120000      R     LCALL   PowerDown_VDC
+                                           ; SOURCE LINE # 236
+0065 120000      R     LCALL   PowerDown_TMDS
+                                           ; SOURCE LINE # 239
+0068 7FFA              MOV     R7,#0FAH
+006A 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 240
+006D 7FFA              MOV     R7,#0FAH
+006F 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 241
+0072 7FFA              MOV     R7,#0FAH
+0074 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 242
+0077 7FFA              MOV     R7,#0FAH
+0079 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 243
+007C 7FFA              MOV     R7,#0FAH
+007E 120000      E     LCALL   _Delay_Xms
+                                           ; SOURCE LINE # 245
+0081 7F03              MOV     R7,#03H
+0083 120000      E     LCALL   _Set_Task
+                                           ; SOURCE LINE # 247
+0086         ?C0020:
+0086 C200        E     CLR     bNotify_Timer0_Int
+                                           ; SOURCE LINE # 250
+0088 D3                SETB    C
+0089 22                RET     
+                                           ; SOURCE LINE # 251
+008A         ?C0017:
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 12  
+
+                                           ; SOURCE LINE # 252
+008A C3                CLR     C
+                                           ; SOURCE LINE # 253
+008B         ?C0016:
+008B 22                RET     
+             ; FUNCTION _Power_Control (END)
+
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 13  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+PowerUp_ADC. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+bNotify_Timer0_Int . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_Set_Task. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Save_GUD1. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+ucModeCnt. . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_RTDOSDW . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_RTDSetByte. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+PowerUp_VDC. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 14  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+_RTDSetBit . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_RTDCodeW. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_Load_VLC_Font . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Font_add . . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+Font_East_C. . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+Power_Up_Init. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+V_DISABLE. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+_I2CWrite. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Font_East_J. . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+_Power_Control . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  Notify . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0000H  1
+bReload. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+Measure_Mode . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bPanel_Status. . . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+bStable. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+PowerDown_TMDS . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+ISP_Check_Sum. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+PowerDown_LVDS . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+SetMute. . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+OSD_Reset. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+Font_Global. . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+LVDS_POWERUP . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+M512_Port50. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+PowerDown_ADC. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+M512_Port51. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+bPower_Status. . . . . . . . . . . . .  PUBLIC   DATA   BIT      0001H  1
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_Set_Panel . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  status . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+C51 COMPILER V7.06   POWER_CTRL                                                            11/21/2005 13:47:42 PAGE 15  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+LVDS_POWERDOWN . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+PowerDown_VDC. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_Delay_Xms . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+PowerUp_TMDS . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+bFrameSync . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+PowerUp_LVDS . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+Font_Icons . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+stGUD1 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  8
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    455    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

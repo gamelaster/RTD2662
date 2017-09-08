@@ -1,0 +1,1746 @@
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE LCD_MSG
+OBJECT MODULE PLACED IN .\Output\Lcd_msg.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Lcd_msg.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PRI
+                    -NT(.\Output\Lcd_msg.lst) PREPRINT(.\Output\Lcd_msg.i) OBJECT(.\Output\Lcd_msg.obj)
+
+stmt level    source
+
+   1          #define __MESSAGE__
+   2          
+   3          #include "reg52.h"
+   4          
+   5          #include "Header\MAIN_DEF.H"
+   6          #include "Header\CONFIG.H"
+   7          #include "Header\ACCESS.H"
+   8          #include "Header\LCD_FUNC.H"
+   9          #include "Header\LCD_MSG.H"
+  10          #include "Header\LCD_MAIN.H"
+  11          #include "Header\LCD_OSD.H"
+  12          #include "Header\MTV512.H"
+  13          #include "Header\OSD.H"
+  14          #include "Header\FONT.H"
+  15          #include "Header\SRC_CTRL.H"
+  16          #include "Header\FRAME_SYNC.H"
+  17          #include "Header\rgb_echo.H"
+  18          
+  19          unsigned char GetKeyState(void)
+  20          {
+  21   1      /*              //anson 050519
+  22   1      #if(MCU_TYPE == MCU_WINBOND)
+  23   1      
+  24   1          unsigned char   ucKeyState;
+  25   1      
+  26   1      #if (BOARD_TYPE == QA_PCB || BOARD_TYPE == DEMO_LVDS_A || KINGMICE)
+  27   1      
+  28   1          ucKeyState  = bPOWER_KEY ? P3 | (IR_KEY_MASK | POWER_KEY_MASK) : (P3 | IR_KEY_MASK) & (0xff ^ POWER_KE
+             -Y_MASK);
+  29   1      #elif(BOARD_TYPE == DEMO1_PCB)
+  30   1         ucKeyState  = bPOWER_KEY ? P1 | (IR_KEY_MASK | POWER_KEY_MASK) : (P1 | IR_KEY_MASK) & (0xff ^ POWER_KEY
+             -_MASK);
+  31   1      #else
+  32   1              ucKeyState  = (P3 & 0x40) | (P1 & 0x1b) | IR_KEY_MASK;
+  33   1      #endif
+  34   1      
+  35   1      #if (IRPOLLING)
+  36   1          {
+  37   1          //    unsigned char   ucIR_Curr;
+  38   1              
+  39   1              // You cannot respond to ucIR_Cmd[0] when IR command decoding (1 < ucIR_State).
+  40   1              // Because ucIR_Cmd[0] is not a constant during command decoding.
+  41   1              Data[0]   = (1 < ucIR_State) ? 0 : ucIR_Cmd[0];
+  42   1      
+  43   1              if (Data[0])
+  44   1              {
+  45   1                  switch (Data[0])
+  46   1                  {
+  47   1      #if (POWER_KEY_TYPE == TYPE_ONE_TOUCH)
+  48   1                  // Only when power-key is one-touch style, you can use IR remote controller to switch power on
+             -/off
+  49   1                  case IR_POWER_KEY :     ucKeyState  &= (0xff ^ POWER_KEY_MASK);     break;
+  50   1      #endif
+  51   1                  // Use IR to implement standard key
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 2   
+
+  52   1                  case IR_LEFT_KEY :      ucKeyState  &= (0xff ^ LEFT_KEY_MASK);      break;
+  53   1                  case IR_RIGHT_KEY :     ucKeyState  &= (0xff ^ RIGHT_KEY_MASK);     break;
+  54   1                  case IR_ENTER_KEY :     ucKeyState  &= (0xff ^ ENTER_KEY_MASK);     break;
+  55   1                  // Other IR function key
+  56   1                  default :        
+  57   1                      ucKeyState  &= (0xff ^ IR_KEY_MASK);
+  58   1      
+  59   1      #if (TV_CHIP != TV_NONE)
+  60   1                      switch (Data[0])
+  61   1                      {
+  62   1                      case IR_FUNC_SOURCE :   Data[0] = NOTIFY_IR_SOURCE;     break;
+  63   1                      case IR_FUNC_DISP :     Data[0] = NOTIFY_IR_DISP;       break;
+  64   1                      case IR_FUNC_JUMP :     Data[0] = NOTIFY_IR_JUMP;       break;
+  65   1                      case IR_FUNC_CHDEC :    Data[0] = NOTIFY_IR_CHDEC;      break;
+  66   1                      case IR_FUNC_CHINC :    Data[0] = NOTIFY_IR_CHINC;      break;
+  67   1                      case IR_FUNC_VOLINC :   Data[0] = NOTIFY_IR_VOLINC;     break;
+  68   1                      case IR_FUNC_VOLDEC :   Data[0] = NOTIFY_IR_VOLDEC;     break;
+  69   1                      case IR_FUNC_MENU :     Data[0] = NOTIFY_IR_MENU;       break;
+  70   1                      case IR_FUNC_ENTER :    Data[0] = NOTIFY_IR_ENTER;      break;
+  71   1                      case IR_FUNC_MUTE :     Data[0] = NOTIFY_IR_MUTE;       break;
+  72   1                      case IR_FUNC_NUM0 :     Data[0] = NOTIFY_IR_NUM0;       break;
+  73   1                      case IR_FUNC_NUM1 :     Data[0] = NOTIFY_IR_NUM1;       break;
+  74   1                      case IR_FUNC_NUM2 :     Data[0] = NOTIFY_IR_NUM2;       break;
+  75   1                      case IR_FUNC_NUM3 :     Data[0] = NOTIFY_IR_NUM3;       break;
+  76   1                      case IR_FUNC_NUM4 :     Data[0] = NOTIFY_IR_NUM4;       break;
+  77   1                      case IR_FUNC_NUM5 :     Data[0] = NOTIFY_IR_NUM5;       break;
+  78   1                      case IR_FUNC_NUM6 :     Data[0] = NOTIFY_IR_NUM6;       break;
+  79   1                      case IR_FUNC_NUM7 :     Data[0] = NOTIFY_IR_NUM7;       break;
+  80   1                      case IR_FUNC_NUM8 :     Data[0] = NOTIFY_IR_NUM8;       break;
+  81   1                      case IR_FUNC_NUM9 :     Data[0] = NOTIFY_IR_NUM9;       break;
+  82   1                      default :               ucKeyState  |= IR_KEY_MASK;     break;
+  83   1                      }
+  84   1      #endif
+  85   1                      break;
+  86   1                  }
+  87   1              }
+  88   1          }
+  89   1      #endif
+  90   1          
+  91   1          return ((ucKeyState & ALL_KEY_MASK) | KEY_DISABLED) ^ ALL_KEY_MASK;
+  92   1      #else
+  93   1      */              //anson 050519
+  94   1      unsigned char ucKeyState=0;
+  95   1      
+  96   1              if(!bRIGHT_KEY)
+  97   1                        ucKeyState=ucKeyState|RIGHT_KEY_MASK;
+  98   1              if(!bLEFT_KEY)
+  99   1                        ucKeyState=ucKeyState|LEFT_KEY_MASK;
+ 100   1              if(!bENTER_KEY)
+ 101   1                        ucKeyState=ucKeyState|ENTER_KEY_MASK;
+ 102   1      //        if(!bMENU_KEY)
+ 103   1      //                ucKeyState=ucKeyState|MENU_KEY_MASK;
+ 104   1              if(!bPOWER_KEY)
+ 105   1                        ucKeyState=ucKeyState|POWER_KEY_MASK;
+ 106   1              if(!bAUTO_KEY)
+ 107   1                        ucKeyState=ucKeyState|AUTO_KEY_MASK;
+ 108   1      
+ 109   1              return ucKeyState;
+ 110   1      
+ 111   1      //#endif                        //anson 050519
+ 112   1      }
+ 113          
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 3   
+
+ 114          // Key_Trans() is used for generating key related messages, including OSD timout message.
+ 115          // You can just issue the message or execute system default function, like changing input source.
+ 116          
+ 117          // BE CAREFUL !! YOU CANNOT CHANGE ANY OSD STATUS REGISTERS OR CALL ANY OSD PROCESS HERE !!
+ 118          // You should not expect OSD_Proc() can always receive your message.
+ 119          // Because main program will shield OSD process from been triggered when input signal isn't stable,
+ 120          // and terminate OSD process when input source is changed.
+ 121          unsigned char Key_Trans()
+ 122          {
+ 123   1          static unsigned char    idata   ucP3_Prev       = 0;
+ 124   1          static unsigned char    idata   ucP3_Curr       = 0;
+ 125   1          static unsigned char    idata   ucKey_Repeat    = 0;
+ 126   1      
+ 127   1          unsigned char   ucNotify    = NOTIFY_NONE;
+ 128   1      
+ 129   1          // Save the previous key status
+ 130   1          ucP3_Prev   = ucP3_Curr;
+ 131   1          // Sample the current key status
+ 132   1          ucP3_Curr   = GetKeyState();
+ 133   1      
+ 134   1      #if (POWER_KEY_TYPE == TYPE_TWO_STATE)
+                      // We MUST handle power-key first.
+                      if (bPower_Status)
+                      {
+                              if (ucP3_Curr & POWER_KEY_MASK)
+                                      ucP3_Curr   ^= POWER_KEY_MASK;  // Go further to handle other keys (and mask power-key)
+                              else
+                              {
+                                      Delay_Xms(20);
+              
+                                      ucP3_Prev   = ucP3_Curr;
+                                      ucP3_Curr   = GetKeyState();
+              
+                                      if (ucP3_Curr & POWER_KEY_MASK)
+                                              ucP3_Curr   ^= POWER_KEY_MASK;  // Go further to handle other keys (and mask power-key)
+                                      else
+                                              return  NOTIFY_POWERDOWN;
+                              }
+                      }
+                      else
+                      {
+                              if (ucP3_Curr & POWER_KEY_MASK)
+                              {
+                                      ucKey_Issued    = 0;
+              
+                                      Delay_Xms(20);
+              
+                                      ucP3_Prev   = ucP3_Curr;
+                                      ucP3_Curr   = GetKeyState();
+              
+                                      if (ucP3_Curr & POWER_KEY_MASK)
+                                              return NOTIFY_POWERUP;
+                                      else
+                                              return NOTIFY_NONE;
+                              }
+                              else
+                                      return NOTIFY_NONE;
+                      }
+              
+              #else   // POWER_KEY_TYPE is TYPE_ONE_TOUCH
+ 174   1      
+ 175   1              if (bPower_Status)
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 4   
+
+ 176   1              {
+ 177   2                      if (POWER_KEY_MASK & ucP3_Curr)
+ 178   2                      {
+ 179   3                              if ((ucP3_Prev ^ ucP3_Curr) & POWER_KEY_MASK)
+ 180   3                              {
+ 181   4                                      Delay_Xms(20);
+ 182   4      
+ 183   4                                      ucP3_Curr   = GetKeyState();
+ 184   4      
+ 185   4                                      if ((ucP3_Prev ^ ucP3_Curr) & POWER_KEY_MASK)   
+ 186   4                                      {
+ 187   5                                              if(((stGUD3.TV_SETTING & 0x08)==0x08) || ((stGUD3.TV_SETTING & 0x20)==0x20 ))  //anson  
+ 188   5                                              {
+ 189   6                                                      stGUD3.TV_SETTING &= 0xF7 ;  //anson Factory bit=0
+ 190   6                                                      Save_GUD3();            //anson
+ 191   6                                              }
+ 192   5                                              return NOTIFY_POWERDOWN;
+ 193   5                                      }
+ 194   4                                      else
+ 195   4                                              return NOTIFY_NONE;
+ 196   4                              }
+ 197   3                      }
+ 198   2              }
+ 199   1              else
+ 200   1              {
+ 201   2                      if ((RIGHT_KEY_MASK| POWER_KEY_MASK ) == ucP3_Curr)             //anson
+ 202   2                      {
+ 203   3                              stGUD3.TV_SETTING |= 0x08;//Factory mode
+ 204   3                              Save_GUD3();
+ 205   3                              return NOTIFY_POWERUP;
+ 206   3                      }
+ 207   2      
+ 208   2                      else if ((MODE_NOSIGNAL == ucMode_Curr) &&((LEFT_KEY_MASK | POWER_KEY_MASK) == ucP3_Curr))     //anson
+ 209   2                      {       //ucNotify    = NOTIFY_BURNIN_KEY;
+ 210   3                              stGUD3.TV_SETTING = stGUD3.TV_SETTING | 0x20; //Burning Mode
+ 211   3                              Save_GUD3();
+ 212   3                              return NOTIFY_POWERUP;
+ 213   3                      }         
+ 214   2      
+ 215   2                      else if (POWER_KEY_MASK & ucP3_Curr)
+ 216   2                      {
+ 217   3                              if ((ucP3_Prev ^ ucP3_Curr) & POWER_KEY_MASK)
+ 218   3                              {
+ 219   4                                      ucKey_Issued    = 0;
+ 220   4      
+ 221   4                                      Delay_Xms(20);
+ 222   4      
+ 223   4                                      ucP3_Curr   = GetKeyState();
+ 224   4      
+ 225   4                                      if ((ucP3_Prev ^ ucP3_Curr) & POWER_KEY_MASK)
+ 226   4                                              return NOTIFY_POWERUP;
+ 227   4                                      else
+ 228   4                                              return NOTIFY_NONE;
+ 229   4                              }
+ 230   3                              else
+ 231   3                                      return NOTIFY_NONE;
+ 232   3                      }
+ 233   2              }
+ 234   1      
+ 235   1      #endif
+ 236   1      
+ 237   1          // Generate Key Messages
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 5   
+
+ 238   1          switch (ucP3_Curr)
+ 239   1          {
+ 240   2      ///////////////////////////////////////////////////////////////////////////////////
+ 241   2      //anson
+ 242   2      ///////////////////////////////////////////////////////////////////////////////////
+ 243   2      
+ 244   2              case FACTORY_KEY_MASK :         //anson 0921
+ 245   2                      if ((ucP3_Prev ^ ucP3_Curr) & FACTORY_KEY_MASK)
+ 246   2                      {
+ 247   3                              do
+ 248   3                              {
+ 249   4                                      ucP3_Curr   = GetKeyState();
+ 250   4                              }while(ucP3_Curr != 0x00);
+ 251   3      
+ 252   3                              ucKey_Issued    = 0;
+ 253   3                              ucNotify        = NOTIFY_FACTORY_KEY;
+ 254   3                      }
+ 255   2                      break;
+ 256   2      
+ 257   2      ///////////////////////////////////////////////////////////////////////////////////
+ 258   2      ///////////////////////////////////////////////////////////////////////////////////
+ 259   2      
+ 260   2          case AUTO_KEY_MASK :
+ 261   2              if ((ucP3_Prev ^ ucP3_Curr) & AUTO_KEY_MASK)
+ 262   2              {
+ 263   3                  ucKey_Issued    = 0;
+ 264   3                  ucNotify        = NOTIFY_AUTO_KEY;
+ 265   3              }
+ 266   2              break;
+ 267   2      /*
+ 268   2          case MENU_KEY_MASK :
+ 269   2              if ((ucP3_Prev ^ ucP3_Curr) & MENU_KEY_MASK)
+ 270   2              {
+ 271   2                 if (ucOSD_Page_Index)
+ 272   2                 {
+ 273   2                    ucKey_Issued    = 0;
+ 274   2      //            ucNotify        = NOTIFY_MENU_KEY;  //default , now mask for exit function
+ 275   2                    ucNotify        = NOTIFY_EXIT_KEY;
+ 276   2                 }
+ 277   2                 else
+ 278   2                 {
+ 279   2                    bStable  = 0;
+ 280   2                    return NOTIFY_POWERUP;
+ 281   2                 }
+ 282   2              }
+ 283   2              break;
+ 284   2      */    
+ 285   2          case ENTER_KEY_MASK :
+ 286   2              if ((ucP3_Prev ^ ucP3_Curr) & ENTER_KEY_MASK)
+ 287   2              {
+ 288   3                  ucKey_Issued    = 0;
+ 289   3      
+ 290   3                  //usOSD_Timer     = (unsigned int)stGUD1.OSD_TIMEOUT << 9;    // Reset OSD timeout timer
+ 291   3                  usOSD_Timer         = (unsigned int)stGUD1.OSD_TIMEOUT * 51; 
+ 292   3                  ucNotify        = NOTIFY_ENTER_KEY;                         // Post enter-key pressed message
+ 293   3                  ucKey_Repeat    = KEY_REPEAT_COUNT * 8;
+ 294   3              }
+ 295   2              else
+ 296   2              {
+ 297   3                  if (ucKey_Repeat)
+ 298   3                      ucKey_Repeat    -= 1;
+ 299   3                  else
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 6   
+
+ 300   3                  {
+ 301   4                      if (ucOSD_Page_Index)
+ 302   4                      {
+ 303   5                          usOSD_Timer = 0;
+ 304   5                          ucNotify    = NOTIFY_CLEAR_OSD;
+ 305   5                      }
+ 306   4                  }
+ 307   3              }
+ 308   2              break;
+ 309   2          
+ 310   2          case RIGHT_KEY_MASK :
+ 311   2          case LEFT_KEY_MASK:
+ 312   2              //usOSD_Timer     = (unsigned int)stGUD1.OSD_TIMEOUT << 9;        // Reset OSD timeout timer
+ 313   2      //----------------------------------echo add begin
+ 314   2              if (ucOSD_Page_Index)
+ 315   2              {
+ 316   3                 usOSD_Timer         = (unsigned int)stGUD1.OSD_TIMEOUT * 51;
+ 317   3              }
+ 318   2              else
+ 319   2              {
+ 320   3                 if (b_rgb_VOLUME_STATUS)
+ 321   3                    usOSD_Timer         = (unsigned int)stGUD1.OSD_TIMEOUT * 4;
+ 322   3              }
+ 323   2      //----------------------------------echo add end;           
+ 324   2              
+ 325   2              if ((ucP3_Prev ^ ucP3_Curr) & ucP3_Curr)
+ 326   2              {
+ 327   3                  ucKey_Issued    = 0;
+ 328   3      
+ 329   3                  ucNotify        = (ucP3_Curr == RIGHT_KEY_MASK) ? NOTIFY_RIGHT_KEY : NOTIFY_LEFT_KEY;  // Post
+             - right-key pressed message
+ 330   3                  ucKey_Repeat    = KEY_REPEAT_COUNT;
+ 331   3              }
+ 332   2              else
+ 333   2              {
+ 334   3                  if (ucKey_Repeat)
+ 335   3                      ucKey_Repeat    -= 1;
+ 336   3                  else
+ 337   3                  {
+ 338   4                      if (KEY_TURBO_ENABLE > ucKey_Issued)
+ 339   4                      {
+ 340   5                          ucKey_Issued    += 1;
+ 341   5                          ucKey_Repeat    = KEY_REPEAT_PERIOD;
+ 342   5                      }
+ 343   4                      else
+ 344   4                          ucKey_Repeat    = 0;
+ 345   4      
+ 346   4                      ucNotify        = (ucP3_Curr == RIGHT_KEY_MASK) ? NOTIFY_RIGHT_KEY : NOTIFY_LEFT_KEY;  // 
+             -Post right-key repeat message
+ 347   4                  }
+ 348   3              }
+ 349   2              break;
+ 350   2      /*    
+ 351   2          case LEFT_KEY_MASK :
+ 352   2              //usOSD_Timer     = (unsigned int)stGUD1.OSD_TIMEOUT << 9;        // Reset OSD timeout timer
+ 353   2              usOSD_Timer         = (unsigned int)stGUD1.OSD_TIMEOUT * 51; 
+ 354   2      
+ 355   2              if ((ucP3_Prev ^ ucP3_Curr) & LEFT_KEY_MASK)
+ 356   2              {
+ 357   2                  ucKey_Issued    = 0;
+ 358   2      
+ 359   2                  ucNotify        = NOTIFY_LEFT_KEY;                          // Post left-key pressed message
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 7   
+
+ 360   2                  ucKey_Repeat    = KEY_REPEAT_COUNT;
+ 361   2              }
+ 362   2              else
+ 363   2              {
+ 364   2                  if (ucKey_Repeat)
+ 365   2                      ucKey_Repeat    -= 1;
+ 366   2                  else
+ 367   2                  {
+ 368   2                      if (KEY_TURBO_ENABLE > ucKey_Issued)
+ 369   2                      {
+ 370   2                          ucKey_Issued    += 1;
+ 371   2                          ucKey_Repeat    = KEY_REPEAT_PERIOD;
+ 372   2                      }
+ 373   2                      else
+ 374   2                          ucKey_Repeat    = 0;
+ 375   2      
+ 376   2                      ucNotify        = NOTIFY_LEFT_KEY;                      // Post left-key repeat message
+ 377   2                  }
+ 378   2              }
+ 379   2              break;
+ 380   2      */
+ 381   2      /*    case IR_KEY_MASK :
+ 382   2              ucKey_Issued    = 0;
+ 383   2              if ((ucP3_Prev ^ ucP3_Curr) & IR_KEY_MASK)
+ 384   2              {
+ 385   2                  if (SOURCE_TV == (stGUD1.INPUT_SOURCE & 0x07))
+ 386   2                  {
+ 387   2                      //usOSD_Timer     = (unsigned int)stGUD1.OSD_TIMEOUT << 9;    // Reset OSD timeout timer
+ 388   2                      usOSD_Timer         = (unsigned int)stGUD1.OSD_TIMEOUT * 51; 
+ 389   2                  }
+ 390   2      
+ 391   2                  ucNotify        = Data[0];                                      // Post IR-key pressed message
+ 392   2                  ucKey_Repeat    = KEY_REPEAT_COUNT;
+ 393   2              }
+ 394   2              else if (NOTIFY_IR_VOLINC == Data[0] || NOTIFY_IR_VOLDEC == Data[0])
+ 395   2              {
+ 396   2                  if (ucKey_Repeat)
+ 397   2                      ucKey_Repeat    -= 1;
+ 398   2                  else
+ 399   2                  {
+ 400   2                      ucNotify        = Data[0];
+ 401   2                      ucKey_Repeat    = KEY_REPEAT_PERIOD;
+ 402   2                  }
+ 403   2              }
+ 404   2              break;
+ 405   2       */   
+ 406   2          default :
+ 407   2              // No key or more than 1 key pressed. Post no message and reset key-repeat.
+ 408   2              ucKey_Repeat    = KEY_REPEAT_COUNT;
+ 409   2              ucKey_Issued    = 0;
+ 410   2      
+ 411   2      #if (HIDDEN_PAGE)        
+                      // For triggering the hidden page
+                      if (0 == ucOSD_Page_Index && (RIGHT_KEY_MASK | LEFT_KEY_MASK) == ucP3_Curr)     ucNotify    = NOTI
+             -FY_LR_KEY;
+              #endif
+ 415   2              break;
+ 416   2          }
+ 417   1      
+ 418   1          return ucNotify;
+ 419   1      }
+ 420          
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 8   
+
+ 421          
+ 422          void OSD_Dispatcher(unsigned char message)
+ 423          {
+ 424   1          if (bReload)
+ 425   1          {
+ 426   2              // When bStable and bReload are both 1s, it is the first iteration after input signal becomes stab
+             -le.
+ 427   2              // bReload will be cleared and user's font will be reloaded.
+ 428   2              bReload = 0;
+ 429   2      
+ 430   2              RTDSetByte(HOSTCTRL_02, 0x40);          // Wake RTD up
+ 431   2              RTDSetBit(OVL_CTRL_6D, 0xfe, 0x00);     // Disable overlay control
+ 432   2              RTDOSDW(OSD_Reset);                    // Clear OSD
+ 433   2            //  RTDSetBit(OVL_CTRL_6D, 0xff, 0x02);     // Turn back to the original osd display width
+ 434   2      
+ 435   2             // Load_Font(JAPANESS == (stGUD1.FUNCTION & 0x07) ? Font_East_J : Font_East_C, 0x00, 0x12);
+ 436   2                      //Load_Font(Font_Global, 0x00, 0x154);
+ 437   2      /*
+ 438   2                      Load_VLC_Font(Font_Global, 0x00, 0xa1);
+ 439   2                      if( (stGUD1.FUNCTION & 0x07) == JAPANESS )
+ 440   2                      {
+ 441   2                              Load_VLC_Font(Font_East_J, 0x573, 0x4B);
+ 442   2                      }
+ 443   2                      else
+ 444   2                      {
+ 445   2                              Load_VLC_Font(Font_East_C, 0x5a9, 0x45);
+ 446   2                      }
+ 447   2                      Load_VLC_Font(Font_Icons, 0x828, 0x70);
+ 448   2      */
+ 449   2              if (ucOSD_Page_Index)
+ 450   2              {
+ 451   3                  message = NOTIFY_SHOW;
+ 452   3              }
+ 453   2              else
+ 454   2              {
+ 455   3                  message = NOTIFY_NONE;
+ 456   3      
+ 457   3                      RTDSetBit(OVL_CTRL_6D, 0x3f, 0x00);     //Red
+ 458   3                      RTDSetBit(BGCOLOR_CONTROL_6C, 0x00, 0x00);
+ 459   3                      RTDSetBit(OVL_CTRL_6D, 0x3f, 0x40);     //Green
+ 460   3                      RTDSetBit(BGCOLOR_CONTROL_6C, 0x00, 0x00);
+ 461   3                      RTDSetBit(OVL_CTRL_6D, 0x3f, 0x80);     //Blue
+ 462   3                      RTDSetBit(BGCOLOR_CONTROL_6C, 0x00, 0x00);
+ 463   3              
+ 464   3                 if (BEGIN_MODECHANGE < usTaskCnt)    Show_Note();
+ 465   3              }
+ 466   2      
+ 467   2              // We always read REG[1F] to see if frame-sync is OK.
+ 468   2              // ucStatus is the OR result of REG[1F] when OSD is open, and clear to 0 when OSD is close.
+ 469   2              //ucStatus    = 0;
+ 470   2      
+ 471   2          }
+ 472   1      
+ 473   1          if ((0 == ucOSD_Page_Index) && (!b_rgb_VOLUME_STATUS))
+ 474   1          {
+ 475   2              if ((BEGIN_MODECHANGE == usTaskCnt))
+ 476   2              {
+ 477   3                  // Disable and clear input source note text
+ 478   3                  RTDSetByte(HOSTCTRL_02, 0x40);
+ 479   3                   RTDSetBit(OVL_CTRL_6D, 0xfe, 0x00);     
+ 480   3                  RTDOSDW(OSD_Reset);
+ 481   3              }
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 9   
+
+ 482   2              else if ((BEGIN_SHOWHINT == usTaskCnt))
+ 483   2              {
+ 484   3                 Show_Hint();
+ 485   3              }
+ 486   2                      
+ 487   2                      
+ 488   2                      //else if (1 == usTaskCnt)
+ 489   2                      //{
+ 490   2                      //    RTDOSDW(OSD_Reset);            // Clear OSD
+ 491   2                      //}
+ 492   2          }
+ 493   1          else if (NOTIFY_NONE == message)
+ 494   1          {
+ 495   2      //        if (0 == usOSD_Timer && 0 != stGUD1.OSD_TIMEOUT && SOURCE_TV != (stGUD1.INPUT_SOURCE & 0x07))
+ 496   2              if (0 == usOSD_Timer && 0 != stGUD1.OSD_TIMEOUT )
+ 497   2              {
+ 498   3                  message = NOTIFY_CLEAR_OSD;
+ 499   3              }
+ 500   2          }
+ 501   1      
+ 502   1          switch (message)
+ 503   1          {
+ 504   2          case NOTIFY_CLEAR_OSD :
+ 505   2      //        if (ucOSD_Page_Index && SOURCE_TV != (stGUD1.INPUT_SOURCE & 0x07))
+ 506   2              if ((ucOSD_Page_Index) || (b_rgb_VOLUME_STATUS))
+ 507   2              {
+ 508   3                  // OSD time-out
+ 509   3                  ucOSD_Page_Index    = 0;
+ 510   3                  ucOSD_Item_Index0   = 0;
+ 511   3                  ucOSD_Item_Index1   = 0;
+ 512   3                  ucOSD_Item_Index2   = 0;
+ 513   3      
+ 514   3                  b_rgb_VOLUME_STATUS = 0;  // echo add 04/05/18
+ 515   3      
+ 516   3                  RTDSetByte(HOSTCTRL_02, 0x40);  // Wake RTD up
+ 517   3      
+ 518   3                  // Although you can add ending animation here, I don't think it is necessary.
+ 519   3                                      RTDSetBit(OVL_CTRL_6D, 0xfe, 0x00);
+ 520   3                  RTDOSDW(OSD_Reset);            // Clear OSD
+ 521   3              }
+ 522   2              break;
+ 523   2      /*
+ 524   2          case NOTIFY_EXIT_KEY :
+ 525   2                  ucOSD_Page_Index    = 0;
+ 526   2                  ucOSD_Item_Index0   = 0;
+ 527   2                  ucOSD_Item_Index1   = 0;
+ 528   2                  ucOSD_Item_Index2   = 0;
+ 529   2      
+ 530   2                  b_rgb_VOLUME_STATUS = 0;  // echo add 04/05/18
+ 531   2      
+ 532   2                  RTDSetByte(HOSTCTRL_02, 0x40);  // Wake RTD up
+ 533   2      
+ 534   2                  // Although you can add ending animation here, I don't think it is necessary.
+ 535   2                                      RTDSetBit(OVL_CTRL_6D, 0xfe, 0x00);
+ 536   2                  RTDOSDW(OSD_Reset);            // Clear OSD
+ 537   2              break;
+ 538   2      */
+ 539   2      
+ 540   2      /*
+ 541   2          case NOTIFY_EXIT_KEY :
+ 542   2              break;
+ 543   2      */
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 10  
+
+ 544   2          case NOTIFY_MENU_KEY :
+ 545   2          case NOTIFY_IR_SOURCE :
+ 546   2              if (SOURCE_VGA == (stGUD1.INPUT_SOURCE & 0x07))
+ 547   2              {
+ 548   3      #if (TMDS_ENABLE) 
+ 549   3                  Change_Source(SOURCE_DVI);
+ 550   3      #else
+                          Change_Source(SOURCE_AV);
+              #endif
+ 553   3              }
+ 554   2              else if (SOURCE_DVI == (stGUD1.INPUT_SOURCE & 0x07))
+ 555   2                  Change_Source(SOURCE_AV);
+ 556   2              else if (SOURCE_AV == (stGUD1.INPUT_SOURCE & 0x07))
+ 557   2                  Change_Source(SOURCE_SV);
+ 558   2              else if (SOURCE_SV == (stGUD1.INPUT_SOURCE & 0x07))
+ 559   2              {
+ 560   3      #if (VIDEO_CHIP == VDC_SAA7118)
+                          Change_Source(SOURCE_YUV);
+              #else
+ 563   3                  Change_Source(SOURCE_TV);
+ 564   3      #endif
+ 565   3              }
+ 566   2              else if (SOURCE_YUV == (stGUD1.INPUT_SOURCE & 0x07))
+ 567   2              {
+ 568   3                  Change_Source(SOURCE_TV);
+ 569   3              }
+ 570   2              else
+ 571   2              {
+ 572   3                  Change_Source(SOURCE_VGA);
+ 573   3              }
+ 574   2              break;
+ 575   2      
+ 576   2          default :
+ 577   2              {
+ 578   3                  // Save the current OSD page index
+ 579   3                  unsigned char   ucPage_Curr     = ucOSD_Page_Index;
+ 580   3      
+ 581   3                  // Send messages to OSD process
+ 582   3                  //(*OSD_Proc[ucOSD_Page_Index][stGUD1.INPUT_SOURCE & 0x07])(message);
+ 583   3                  OSD_Proc(message);
+ 584   3      
+ 585   3                  // If OSD page is changed ...
+ 586   3                  if (ucPage_Curr != ucOSD_Page_Index)
+ 587   3                  {
+ 588   4                      if (ucOSD_Page_Index)
+ 589   4                      {
+ 590   5                          if (0 == ucPage_Curr)
+ 591   5                          {
+ 592   6                              // ucOSD_Page_Index becomes non-zero value from zero. It is the first show of OSD.
+ 593   6                              // Maybe RTD3001 is still in power-saving mode, or we are showing some text on scr
+             -een,
+ 594   6                              // like "No Signal". So we must wake up RTD3001 and clear screen before we display
+             - OSD.
+ 595   6                              RTDSetByte(HOSTCTRL_02, 0x40);
+ 596   6                              RTDSetBit(VDIS_CTRL_20, 0xff, 0x01);
+ 597   6                                                      RTDSetBit(OVL_CTRL_6D, 0xfe, 0x00);     
+ 598   6                              RTDOSDW(OSD_Reset);
+ 599   6                          }
+ 600   5      
+ 601   5                          //(*OSD_Proc[ucOSD_Page_Index][stGUD1.INPUT_SOURCE & 0x07])(NOTIFY_SHOW);
+ 602   5                          OSD_Proc(NOTIFY_SHOW);
+ 603   5      
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 11  
+
+ 604   5                                              if (0 == ucPage_Curr)
+ 605   5                                              {
+ 606   6                                                      //RTDCodeW(OSD_Enable);
+ 607   6                                                      //RTDSetBit(OVL_CTRL_6D, 0xfe, 0x01);
+ 608   6      
+ 609   6                                                      OSD_Opening();
+ 610   6                                              }
+ 611   5                      }
+ 612   4                      else
+ 613   4                      {
+ 614   5                          // OSD should be cleared when ucOSD_Page_Index becomes 0. 
+ 615   5                          // Clear other OSD status registers for safety
+ 616   5                          ucOSD_Item_Index0   = 0;
+ 617   5                          ucOSD_Item_Index1   = 0;
+ 618   5                          ucOSD_Item_Index2   = 0;
+ 619   5      
+ 620   5                          RTDSetByte(HOSTCTRL_02, 0x40);  // Wake RTD up
+ 621   5      
+ 622   5                          OSD_Ending();
+ 623   5                                              //RTDSetBit(OVL_CTRL_6D, 0xfe, 0x00);     
+ 624   5                          //RTDCodeW(OSD_Reset);            // Clear OSD
+ 625   5                      }
+ 626   4                  }
+ 627   3                  else
+ 628   3                  {
+ 629   4                      // OSD page is not changed
+ 630   4                      if (ucOSD_Page_Index)
+ 631   4                      {
+ 632   5                                              if (NOTIFY_SHOW == message)     
+ 633   5                                              {
+ 634   6                                                      RTDCodeW(OSD_Enable);
+ 635   6                                                      RTDSetBit(OVL_CTRL_6D, 0xfe, 0x01);
+ 636   6                                              }
+ 637   5      
+ 638   5                          // Change H/V Position and ADC clock may cause overflow/underflow temporarily.
+ 639   5                          if (NOTIFY_RIGHT_KEY == message || NOTIFY_LEFT_KEY == message)
+ 640   5                          {
+ 641   6      
+ 642   6                                                      RTDSetByte(STATUS0_01, 0x00);  // Clear status
+ 643   6                              RTDSetByte(STATUS1_1F, 0x00);  // Clear status
+ 644   6      
+ 645   6                          }
+ 646   5      #if (SHOW_CHECK)
+                                  // Just for showing debug information
+                                  OSD_Show_Check();
+                                      if( ucOSD_Item_Index0 == 5 &&  ucOSD_Page_Index == 1 &&  ucOSD_Item_Index1)
+                                      {
+                                              ucOSD_Page_Index = 7;
+                                              OSD_Show_Check();
+                                              ucOSD_Page_Index = 1;
+              
+                                      }
+              #endif
+ 657   5                      }
+ 658   4                      else
+ 659   4                      {
+ 660   5                          // We always read REG[1F] to see if frame-sync is OK.
+ 661   5                          // ucStatus is the OR result of REG[1F] when OSD is open, and clear to 0 when OSD is c
+             -lose.
+ 662   5                          ucStatus    = 0;
+ 663   5      #if (RTDDEBUG)
+                                  usPE_Sum    = 0;
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 12  
+
+              #endif
+ 666   5                      }
+ 667   4                  }
+ 668   3              }
+ 669   2              break;
+ 670   2          }
+ 671   1      }
+ 672          
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 13  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION Com0068 (BEGIN)
+0000         L?0105:
+0000 AF00        E     MOV     R7,stGUD1+06H
+0002 7D33              MOV     R5,#033H
+0004 120000      E     LCALL   ?C?IMUL
+0007 7800        E     MOV     R0,#LOW usOSD_Timer
+0009 A606              MOV     @R0,AR6
+000B 08                INC     R0
+000C A607              MOV     @R0,AR7
+000E 22                RET     
+000F         L?0108:
+000F 7800        E     MOV     R0,#LOW ucOSD_Item_Index0
+0011 F6                MOV     @R0,A
+0012 7800        E     MOV     R0,#LOW ucOSD_Item_Index1
+0014 F6                MOV     @R0,A
+0015 7800        E     MOV     R0,#LOW ucOSD_Item_Index2
+0017 F6                MOV     @R0,A
+0018 22                RET     
+             ; FUNCTION Com0068 (END)
+
+             ; FUNCTION GetKeyState (BEGIN)
+                                           ; SOURCE LINE # 19
+                                           ; SOURCE LINE # 20
+                                           ; SOURCE LINE # 94
+;---- Variable 'ucKeyState' assigned to Register 'R7' ----
+0000 E4                CLR     A
+0001 FF                MOV     R7,A
+                                           ; SOURCE LINE # 96
+0002 20B402            JB      bRIGHT_KEY,?C0001
+                                           ; SOURCE LINE # 97
+0005 7F08              MOV     R7,#08H
+0007         ?C0001:
+                                           ; SOURCE LINE # 98
+0007 20B503            JB      bLEFT_KEY,?C0002
+                                           ; SOURCE LINE # 99
+000A 430760            ORL     AR7,#060H
+000D         ?C0002:
+                                           ; SOURCE LINE # 100
+000D 900000      E     MOV     DPTR,#M512_Port60
+0010 E0                MOVX    A,@DPTR
+0011 20E003            JB      ACC.0,?C0003
+                                           ; SOURCE LINE # 101
+0014 430720            ORL     AR7,#020H
+0017         ?C0003:
+                                           ; SOURCE LINE # 104
+0017 900000      E     MOV     DPTR,#M512_Port54
+001A E0                MOVX    A,@DPTR
+001B 20E003            JB      ACC.0,?C0004
+                                           ; SOURCE LINE # 105
+001E 430710            ORL     AR7,#010H
+0021         ?C0004:
+                                           ; SOURCE LINE # 106
+0021 900000      E     MOV     DPTR,#M512_Port55
+0024 E0                MOVX    A,@DPTR
+0025 20E003            JB      ACC.0,?C0005
+                                           ; SOURCE LINE # 107
+0028 430701            ORL     AR7,#01H
+002B         ?C0005:
+                                           ; SOURCE LINE # 109
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 14  
+
+                                           ; SOURCE LINE # 112
+002B         ?C0006:
+002B 22                RET     
+             ; FUNCTION GetKeyState (END)
+
+             ; FUNCTION Key_Trans (BEGIN)
+                                           ; SOURCE LINE # 121
+                                           ; SOURCE LINE # 122
+                                           ; SOURCE LINE # 127
+0000 E4                CLR     A
+0001 F500        R     MOV     ucNotify,A
+                                           ; SOURCE LINE # 130
+0003 7800        R     MOV     R0,#LOW ucP3_Curr
+0005 E6                MOV     A,@R0
+0006 18                DEC     R0
+0007 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 132
+0008 120000      R     LCALL   GetKeyState
+000B 08                INC     R0
+000C A607              MOV     @R0,AR7
+                                           ; SOURCE LINE # 175
+000E 300025      E     JNB     bPower_Status,?C0007
+                                           ; SOURCE LINE # 176
+                                           ; SOURCE LINE # 177
+0011 E6                MOV     A,@R0
+0012 30E460            JNB     ACC.4,?C0015
+                                           ; SOURCE LINE # 178
+                                           ; SOURCE LINE # 179
+0015 18                DEC     R0
+0016 66                XRL     A,@R0
+0017 30E45B            JNB     ACC.4,?C0015
+                                           ; SOURCE LINE # 180
+                                           ; SOURCE LINE # 181
+                                           ; SOURCE LINE # 183
+001A 120000      R     LCALL   L?0103
+                                           ; SOURCE LINE # 185
+001D 18                DEC     R0
+001E 66                XRL     A,@R0
+001F 30E411            JNB     ACC.4,?C0010
+                                           ; SOURCE LINE # 186
+                                           ; SOURCE LINE # 187
+0022 E500        E     MOV     A,stGUD3+03H
+0024 20E303            JB      ACC.3,?C0012
+0027 30E506            JNB     ACC.5,?C0011
+002A         ?C0012:
+                                           ; SOURCE LINE # 188
+                                           ; SOURCE LINE # 189
+002A 5300F7      E     ANL     stGUD3+03H,#0F7H
+                                           ; SOURCE LINE # 190
+002D 120000      E     LCALL   Save_GUD3
+                                           ; SOURCE LINE # 191
+0030         ?C0011:
+                                           ; SOURCE LINE # 192
+0030 7F81              MOV     R7,#081H
+0032 22                RET     
+                                           ; SOURCE LINE # 193
+0033         ?C0010:
+                                           ; SOURCE LINE # 195
+0033 7F00              MOV     R7,#00H
+0035 22                RET     
+                                           ; SOURCE LINE # 196
+                                           ; SOURCE LINE # 197
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 15  
+
+                                           ; SOURCE LINE # 198
+0036         ?C0007:
+                                           ; SOURCE LINE # 200
+                                           ; SOURCE LINE # 201
+0036 7800        R     MOV     R0,#LOW ucP3_Curr
+0038 E6                MOV     A,@R0
+0039 B41805            CJNE    A,#018H,?C0016
+                                           ; SOURCE LINE # 202
+                                           ; SOURCE LINE # 203
+003C 430008      E     ORL     stGUD3+03H,#08H
+                                           ; SOURCE LINE # 204
+                                           ; SOURCE LINE # 205
+003F 800E              SJMP    ?C0095
+                                           ; SOURCE LINE # 206
+0041         ?C0016:
+                                           ; SOURCE LINE # 208
+0041 7800        E     MOV     R0,#LOW ucMode_Curr
+0043 E6                MOV     A,@R0
+0044 700F              JNZ     ?C0018
+0046 7800        R     MOV     R0,#LOW ucP3_Curr
+0048 E6                MOV     A,@R0
+0049 B47009            CJNE    A,#070H,?C0018
+                                           ; SOURCE LINE # 209
+                                           ; SOURCE LINE # 210
+004C 430020      E     ORL     stGUD3+03H,#020H
+                                           ; SOURCE LINE # 211
+004F         ?C0095:
+004F 120000      E     LCALL   Save_GUD3
+                                           ; SOURCE LINE # 212
+0052 7F80              MOV     R7,#080H
+0054 22                RET     
+                                           ; SOURCE LINE # 213
+0055         ?C0018:
+                                           ; SOURCE LINE # 215
+0055 7800        R     MOV     R0,#LOW ucP3_Curr
+0057 E6                MOV     A,@R0
+0058 30E41A            JNB     ACC.4,?C0015
+                                           ; SOURCE LINE # 216
+                                           ; SOURCE LINE # 217
+005B 18                DEC     R0
+005C 66                XRL     A,@R0
+005D 30E412            JNB     ACC.4,?C0021
+                                           ; SOURCE LINE # 218
+                                           ; SOURCE LINE # 219
+0060 E4                CLR     A
+0061 7800        R     MOV     R0,#LOW ucKey_Issued
+0063 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 221
+                                           ; SOURCE LINE # 223
+0064 120000      R     LCALL   L?0103
+                                           ; SOURCE LINE # 225
+0067 18                DEC     R0
+0068 66                XRL     A,@R0
+0069 30E403            JNB     ACC.4,?C0022
+                                           ; SOURCE LINE # 226
+006C 7F80              MOV     R7,#080H
+006E 22                RET     
+006F         ?C0022:
+                                           ; SOURCE LINE # 228
+006F 7F00              MOV     R7,#00H
+0071 22                RET     
+                                           ; SOURCE LINE # 229
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 16  
+
+0072         ?C0021:
+                                           ; SOURCE LINE # 231
+0072 7F00              MOV     R7,#00H
+0074 22                RET     
+                                           ; SOURCE LINE # 232
+                                           ; SOURCE LINE # 233
+0075         ?C0015:
+                                           ; SOURCE LINE # 238
+0075 7800        R     MOV     R0,#LOW ucP3_Curr
+0077 E6                MOV     A,@R0
+0078 FF                MOV     R7,A
+0079 14                DEC     A
+007A 6030              JZ      ?C0031
+007C 24F9              ADD     A,#0F9H
+007E 6077              JZ      ?C0040
+0080 24E8              ADD     A,#0E8H
+0082 603E              JZ      ?C0033
+0084 24C0              ADD     A,#0C0H
+0086 606F              JZ      ?C0040
+0088 244C              ADD     A,#04CH
+008A 6003              JZ      $ + 5H
+008C 020000      R     LJMP    ?C0054
+                                           ; SOURCE LINE # 239
+                                           ; SOURCE LINE # 244
+008F         ?C0026:
+                                           ; SOURCE LINE # 245
+008F 7800        R     MOV     R0,#LOW ucP3_Prev
+0091 E6                MOV     A,@R0
+0092 6F                XRL     A,R7
+0093 5414              ANL     A,#014H
+0095 7003              JNZ     $ + 5H
+0097 020000      R     LJMP    ?C0025
+                                           ; SOURCE LINE # 246
+009A         ?C0030:
+                                           ; SOURCE LINE # 248
+                                           ; SOURCE LINE # 249
+009A 120000      R     LCALL   GetKeyState
+009D 7800        R     MOV     R0,#LOW ucP3_Curr
+009F EF                MOV     A,R7
+00A0 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 250
+00A1 70F7              JNZ     ?C0030
+                                           ; SOURCE LINE # 252
+00A3 7800        R     MOV     R0,#LOW ucKey_Issued
+00A5 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 253
+00A6 750009      R     MOV     ucNotify,#09H
+                                           ; SOURCE LINE # 254
+                                           ; SOURCE LINE # 255
+00A9 020000      R     LJMP    ?C0025
+                                           ; SOURCE LINE # 260
+00AC         ?C0031:
+                                           ; SOURCE LINE # 261
+00AC 7900        R     MOV     R1,#LOW ucP3_Prev
+00AE E7                MOV     A,@R1
+00AF 7800        R     MOV     R0,#LOW ucP3_Curr
+00B1 66                XRL     A,@R0
+00B2 20E003            JB      ACC.0,$ + 6H
+00B5 020000      R     LJMP    ?C0025
+                                           ; SOURCE LINE # 262
+                                           ; SOURCE LINE # 263
+00B8 E4                CLR     A
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 17  
+
+00B9 7800        R     MOV     R0,#LOW ucKey_Issued
+00BB F6                MOV     @R0,A
+                                           ; SOURCE LINE # 264
+00BC 750005      R     MOV     ucNotify,#05H
+                                           ; SOURCE LINE # 265
+                                           ; SOURCE LINE # 266
+00BF 020000      R     LJMP    ?C0025
+                                           ; SOURCE LINE # 285
+00C2         ?C0033:
+                                           ; SOURCE LINE # 286
+00C2 7900        R     MOV     R1,#LOW ucP3_Prev
+00C4 E7                MOV     A,@R1
+00C5 7800        R     MOV     R0,#LOW ucP3_Curr
+00C7 66                XRL     A,@R0
+00C8 30E513            JNB     ACC.5,?C0034
+                                           ; SOURCE LINE # 287
+                                           ; SOURCE LINE # 288
+00CB E4                CLR     A
+00CC 7800        R     MOV     R0,#LOW ucKey_Issued
+00CE F6                MOV     @R0,A
+                                           ; SOURCE LINE # 291
+00CF FE                MOV     R6,A
+00D0 FC                MOV     R4,A
+00D1 120000      R     LCALL   L?0105
+                                           ; SOURCE LINE # 292
+00D4 750002      R     MOV     ucNotify,#02H
+                                           ; SOURCE LINE # 293
+00D7 7800        R     MOV     R0,#LOW ucKey_Repeat
+00D9 7678              MOV     @R0,#078H
+                                           ; SOURCE LINE # 294
+00DB 020000      R     LJMP    ?C0025
+00DE         ?C0034:
+                                           ; SOURCE LINE # 296
+                                           ; SOURCE LINE # 297
+00DE 7800        R     MOV     R0,#LOW ucKey_Repeat
+00E0 E6                MOV     A,@R0
+00E1 6004              JZ      ?C0036
+                                           ; SOURCE LINE # 298
+00E3 16                DEC     @R0
+00E4 020000      R     LJMP    ?C0025
+00E7         ?C0036:
+                                           ; SOURCE LINE # 300
+                                           ; SOURCE LINE # 301
+00E7 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+00E9 E6                MOV     A,@R0
+00EA 607B              JZ      ?C0025
+                                           ; SOURCE LINE # 302
+                                           ; SOURCE LINE # 303
+00EC E4                CLR     A
+00ED 7800        E     MOV     R0,#LOW usOSD_Timer
+00EF F6                MOV     @R0,A
+00F0 08                INC     R0
+00F1 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 304
+00F2 750082      R     MOV     ucNotify,#082H
+                                           ; SOURCE LINE # 305
+                                           ; SOURCE LINE # 306
+                                           ; SOURCE LINE # 307
+                                           ; SOURCE LINE # 308
+00F5 8070              SJMP    ?C0025
+                                           ; SOURCE LINE # 310
+                                           ; SOURCE LINE # 311
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 18  
+
+00F7         ?C0040:
+                                           ; SOURCE LINE # 314
+00F7 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+00F9 E6                MOV     A,@R0
+00FA 6009              JZ      ?C0041
+                                           ; SOURCE LINE # 315
+                                           ; SOURCE LINE # 316
+00FC 7E00              MOV     R6,#00H
+00FE 7C00              MOV     R4,#00H
+0100 120000      R     LCALL   L?0105
+                                           ; SOURCE LINE # 317
+0103 8010              SJMP    ?C0042
+0105         ?C0041:
+                                           ; SOURCE LINE # 319
+                                           ; SOURCE LINE # 320
+0105 30000D      E     JNB     b_rgb_VOLUME_STATUS,?C0042
+                                           ; SOURCE LINE # 321
+0108 E500        E     MOV     A,stGUD1+06H
+010A 75F004            MOV     B,#04H
+010D A4                MUL     AB
+010E 7900        E     MOV     R1,#LOW usOSD_Timer+01H
+0110 F7                MOV     @R1,A
+0111 E5F0              MOV     A,B
+0113 19                DEC     R1
+0114 F7                MOV     @R1,A
+                                           ; SOURCE LINE # 322
+0115         ?C0042:
+                                           ; SOURCE LINE # 325
+0115 7800        R     MOV     R0,#LOW ucP3_Curr
+0117 E6                MOV     A,@R0
+0118 FF                MOV     R7,A
+0119 18                DEC     R0
+011A 66                XRL     A,@R0
+011B 5F                ANL     A,R7
+011C 6018              JZ      ?C0044
+                                           ; SOURCE LINE # 326
+                                           ; SOURCE LINE # 327
+011E E4                CLR     A
+011F 7800        R     MOV     R0,#LOW ucKey_Issued
+0121 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 329
+0122 7800        R     MOV     R0,#LOW ucP3_Curr
+0124 E6                MOV     A,@R0
+0125 B40804            CJNE    A,#08H,?C0045
+0128 7F03              MOV     R7,#03H
+012A 8002              SJMP    ?C0046
+012C         ?C0045:
+012C 7F04              MOV     R7,#04H
+012E         ?C0046:
+012E 8F00        R     MOV     ucNotify,R7
+                                           ; SOURCE LINE # 330
+0130 7800        R     MOV     R0,#LOW ucKey_Repeat
+0132 760F              MOV     @R0,#0FH
+                                           ; SOURCE LINE # 331
+0134 8031              SJMP    ?C0025
+0136         ?C0044:
+                                           ; SOURCE LINE # 333
+                                           ; SOURCE LINE # 334
+0136 7800        R     MOV     R0,#LOW ucKey_Repeat
+0138 E6                MOV     A,@R0
+0139 6003              JZ      ?C0048
+                                           ; SOURCE LINE # 335
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 19  
+
+013B 16                DEC     @R0
+013C 8029              SJMP    ?C0025
+013E         ?C0048:
+                                           ; SOURCE LINE # 337
+                                           ; SOURCE LINE # 338
+013E 740F              MOV     A,#0FH
+0140 D3                SETB    C
+0141 7800        R     MOV     R0,#LOW ucKey_Issued
+0143 96                SUBB    A,@R0
+0144 4006              JC      ?C0050
+                                           ; SOURCE LINE # 339
+                                           ; SOURCE LINE # 340
+0146 06                INC     @R0
+                                           ; SOURCE LINE # 341
+0147 18                DEC     R0
+0148 7601              MOV     @R0,#01H
+                                           ; SOURCE LINE # 342
+014A 8004              SJMP    ?C0051
+014C         ?C0050:
+                                           ; SOURCE LINE # 344
+014C E4                CLR     A
+014D 7800        R     MOV     R0,#LOW ucKey_Repeat
+014F F6                MOV     @R0,A
+0150         ?C0051:
+                                           ; SOURCE LINE # 346
+0150 7800        R     MOV     R0,#LOW ucP3_Curr
+0152 E6                MOV     A,@R0
+0153 B40804            CJNE    A,#08H,?C0052
+0156 7F03              MOV     R7,#03H
+0158 8002              SJMP    ?C0053
+015A         ?C0052:
+015A 7F04              MOV     R7,#04H
+015C         ?C0053:
+015C 8F00        R     MOV     ucNotify,R7
+                                           ; SOURCE LINE # 347
+                                           ; SOURCE LINE # 348
+                                           ; SOURCE LINE # 349
+015E 8007              SJMP    ?C0025
+                                           ; SOURCE LINE # 406
+0160         ?C0054:
+                                           ; SOURCE LINE # 408
+0160 7800        R     MOV     R0,#LOW ucKey_Repeat
+0162 760F              MOV     @R0,#0FH
+                                           ; SOURCE LINE # 409
+0164 E4                CLR     A
+0165 08                INC     R0
+0166 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 415
+                                           ; SOURCE LINE # 416
+0167         ?C0025:
+                                           ; SOURCE LINE # 418
+0167 AF00        R     MOV     R7,ucNotify
+                                           ; SOURCE LINE # 419
+0169         ?C0013:
+0169 22                RET     
+016A         L?0103:
+016A 7F14              MOV     R7,#014H
+016C 120000      E     LCALL   _Delay_Xms
+016F 120000      R     LCALL   GetKeyState
+0172 7800        R     MOV     R0,#LOW ucP3_Curr
+0174 EF                MOV     A,R7
+0175 F6                MOV     @R0,A
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 20  
+
+0176 22                RET     
+             ; FUNCTION Key_Trans (END)
+
+             ; FUNCTION _OSD_Dispatcher (BEGIN)
+                                           ; SOURCE LINE # 422
+0000 8F00        R     MOV     message,R7
+                                           ; SOURCE LINE # 423
+                                           ; SOURCE LINE # 424
+0002 30003D      E     JNB     bReload,?C0055
+                                           ; SOURCE LINE # 425
+                                           ; SOURCE LINE # 428
+0005 C200        E     CLR     bReload
+                                           ; SOURCE LINE # 430
+                                           ; SOURCE LINE # 431
+                                           ; SOURCE LINE # 432
+0007 120000      R     LCALL   L?0101
+000A 120000      E     LCALL   _RTDOSDW
+                                           ; SOURCE LINE # 449
+000D 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+000F E6                MOV     A,@R0
+0010 6005              JZ      ?C0056
+                                           ; SOURCE LINE # 450
+                                           ; SOURCE LINE # 451
+0012 750083      R     MOV     message,#083H
+                                           ; SOURCE LINE # 452
+0015 802B              SJMP    ?C0055
+0017         ?C0056:
+                                           ; SOURCE LINE # 454
+                                           ; SOURCE LINE # 455
+0017 E4                CLR     A
+0018 F500        R     MOV     message,A
+                                           ; SOURCE LINE # 457
+001A FB                MOV     R3,A
+                                           ; SOURCE LINE # 458
+001B 120000      R     LCALL   L?0102
+                                           ; SOURCE LINE # 459
+001E 7B40              MOV     R3,#040H
+                                           ; SOURCE LINE # 460
+0020 120000      R     LCALL   L?0102
+                                           ; SOURCE LINE # 461
+0023 7B80              MOV     R3,#080H
+0025 7D3F              MOV     R5,#03FH
+0027 7F6D              MOV     R7,#06DH
+0029 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 462
+002C E4                CLR     A
+002D FB                MOV     R3,A
+002E FD                MOV     R5,A
+002F 7F6C              MOV     R7,#06CH
+0031 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 464
+0034 C3                CLR     C
+0035 74C8              MOV     A,#0C8H
+0037 7800        E     MOV     R0,#LOW usTaskCnt+01H
+0039 96                SUBB    A,@R0
+003A E4                CLR     A
+003B 18                DEC     R0
+003C 96                SUBB    A,@R0
+003D 5003              JNC     ?C0055
+003F 120000      E     LCALL   Show_Note
+                                           ; SOURCE LINE # 465
+                                           ; SOURCE LINE # 471
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 21  
+
+0042         ?C0055:
+                                           ; SOURCE LINE # 473
+0042 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+0044 E6                MOV     A,@R0
+0045 7022              JNZ     ?C0059
+0047 20001F      E     JB      b_rgb_VOLUME_STATUS,?C0059
+                                           ; SOURCE LINE # 474
+                                           ; SOURCE LINE # 475
+004A 7800        E     MOV     R0,#LOW usTaskCnt+01H
+004C E6                MOV     A,@R0
+004D 64C8              XRL     A,#0C8H
+004F 18                DEC     R0
+0050 46                ORL     A,@R0
+0051 7008              JNZ     ?C0060
+                                           ; SOURCE LINE # 476
+                                           ; SOURCE LINE # 478
+                                           ; SOURCE LINE # 479
+                                           ; SOURCE LINE # 480
+0053 120000      R     LCALL   L?0101
+0056 120000      E     LCALL   _RTDOSDW
+                                           ; SOURCE LINE # 481
+0059 8020              SJMP    ?C0063
+005B         ?C0060:
+                                           ; SOURCE LINE # 482
+005B 7800        E     MOV     R0,#LOW usTaskCnt+01H
+005D E6                MOV     A,@R0
+005E 6464              XRL     A,#064H
+0060 18                DEC     R0
+0061 46                ORL     A,@R0
+0062 7017              JNZ     ?C0063
+                                           ; SOURCE LINE # 483
+                                           ; SOURCE LINE # 484
+0064 120000      E     LCALL   Show_Hint
+                                           ; SOURCE LINE # 485
+                                           ; SOURCE LINE # 492
+0067 8012              SJMP    ?C0063
+0069         ?C0059:
+                                           ; SOURCE LINE # 493
+0069 E500        R     MOV     A,message
+006B 700E              JNZ     ?C0063
+                                           ; SOURCE LINE # 494
+                                           ; SOURCE LINE # 496
+006D 7800        E     MOV     R0,#LOW usOSD_Timer+01H
+006F E6                MOV     A,@R0
+0070 18                DEC     R0
+0071 46                ORL     A,@R0
+0072 7007              JNZ     ?C0063
+0074 E500        E     MOV     A,stGUD1+06H
+0076 6003              JZ      ?C0063
+                                           ; SOURCE LINE # 497
+                                           ; SOURCE LINE # 498
+0078 750082      R     MOV     message,#082H
+                                           ; SOURCE LINE # 499
+                                           ; SOURCE LINE # 500
+007B         ?C0063:
+                                           ; SOURCE LINE # 502
+007B E500        R     MOV     A,message
+007D 14                DEC     A
+007E 6029              JZ      ?C0071
+0080 24E7              ADD     A,#0E7H
+0082 6025              JZ      ?C0071
+0084 2498              ADD     A,#098H
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 22  
+
+0086 7060              JNZ     ?C0082
+                                           ; SOURCE LINE # 503
+                                           ; SOURCE LINE # 504
+0088         ?C0067:
+                                           ; SOURCE LINE # 506
+0088 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+008A E6                MOV     A,@R0
+008B 7006              JNZ     ?C0069
+008D 200003      E     JB      b_rgb_VOLUME_STATUS,$ + 6H
+0090 020000      R     LJMP    ?C0094
+0093         ?C0069:
+                                           ; SOURCE LINE # 507
+                                           ; SOURCE LINE # 509
+0093 E4                CLR     A
+0094 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+0096 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 510
+                                           ; SOURCE LINE # 511
+                                           ; SOURCE LINE # 512
+0097 120000      R     LCALL   L?0108
+                                           ; SOURCE LINE # 514
+009A C200        E     CLR     b_rgb_VOLUME_STATUS
+                                           ; SOURCE LINE # 516
+009C 120000      R     LCALL   L?0107
+                                           ; SOURCE LINE # 519
+009F 120000      R     LCALL   L?0106
+                                           ; SOURCE LINE # 520
+00A2 7E00        E     MOV     R6,#HIGH OSD_Reset
+00A4 7F00        E     MOV     R7,#LOW OSD_Reset
+00A6 020000      E     LJMP    _RTDOSDW
+                                           ; SOURCE LINE # 521
+                                           ; SOURCE LINE # 522
+                                           ; SOURCE LINE # 544
+                                           ; SOURCE LINE # 545
+00A9         ?C0071:
+                                           ; SOURCE LINE # 546
+00A9 E500        E     MOV     A,stGUD1+01H
+00AB 5407              ANL     A,#07H
+00AD 7004              JNZ     ?C0072
+                                           ; SOURCE LINE # 547
+                                           ; SOURCE LINE # 549
+00AF 7F01              MOV     R7,#01H
+                                           ; SOURCE LINE # 553
+00B1 8032              SJMP    ?C0100
+00B3         ?C0072:
+                                           ; SOURCE LINE # 554
+00B3 E500        E     MOV     A,stGUD1+01H
+00B5 5407              ANL     A,#07H
+00B7 FF                MOV     R7,A
+00B8 BF0104            CJNE    R7,#01H,?C0074
+                                           ; SOURCE LINE # 555
+00BB 7F02              MOV     R7,#02H
+00BD         ?C0096:
+00BD 8026              SJMP    ?C0100
+00BF         ?C0074:
+                                           ; SOURCE LINE # 556
+00BF E500        E     MOV     A,stGUD1+01H
+00C1 5407              ANL     A,#07H
+00C3 FF                MOV     R7,A
+00C4 BF0204            CJNE    R7,#02H,?C0076
+                                           ; SOURCE LINE # 557
+00C7 7F03              MOV     R7,#03H
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 23  
+
+00C9         ?C0097:
+00C9 801A              SJMP    ?C0100
+00CB         ?C0076:
+                                           ; SOURCE LINE # 558
+00CB E500        E     MOV     A,stGUD1+01H
+00CD 5407              ANL     A,#07H
+00CF FF                MOV     R7,A
+00D0 BF0304            CJNE    R7,#03H,?C0078
+                                           ; SOURCE LINE # 559
+                                           ; SOURCE LINE # 563
+00D3 7F05              MOV     R7,#05H
+00D5         ?C0098:
+                                           ; SOURCE LINE # 565
+00D5 800E              SJMP    ?C0100
+00D7         ?C0078:
+                                           ; SOURCE LINE # 566
+00D7 E500        E     MOV     A,stGUD1+01H
+00D9 5407              ANL     A,#07H
+00DB FF                MOV     R7,A
+00DC BF0404            CJNE    R7,#04H,?C0080
+                                           ; SOURCE LINE # 567
+                                           ; SOURCE LINE # 568
+00DF 7F05              MOV     R7,#05H
+00E1         ?C0099:
+                                           ; SOURCE LINE # 569
+00E1 8002              SJMP    ?C0100
+00E3         ?C0080:
+                                           ; SOURCE LINE # 571
+                                           ; SOURCE LINE # 572
+00E3 E4                CLR     A
+00E4 FF                MOV     R7,A
+00E5         ?C0100:
+00E5 020000      E     LJMP    _Change_Source
+                                           ; SOURCE LINE # 573
+                                           ; SOURCE LINE # 574
+                                           ; SOURCE LINE # 576
+00E8         ?C0082:
+                                           ; SOURCE LINE # 577
+                                           ; SOURCE LINE # 579
+00E8 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+00EA E6                MOV     A,@R0
+00EB F500        R     MOV     ucPage_Curr,A
+                                           ; SOURCE LINE # 583
+00ED AF00        R     MOV     R7,message
+00EF 120000      E     LCALL   _OSD_Proc
+                                           ; SOURCE LINE # 586
+00F2 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+00F4 E6                MOV     A,@R0
+00F5 FF                MOV     R7,A
+00F6 6500        R     XRL     A,ucPage_Curr
+00F8 6037              JZ      ?C0083
+                                           ; SOURCE LINE # 587
+                                           ; SOURCE LINE # 588
+00FA EF                MOV     A,R7
+00FB 6026              JZ      ?C0084
+                                           ; SOURCE LINE # 589
+                                           ; SOURCE LINE # 590
+00FD E500        R     MOV     A,ucPage_Curr
+00FF 7016              JNZ     ?C0085
+                                           ; SOURCE LINE # 591
+                                           ; SOURCE LINE # 595
+0101 120000      R     LCALL   L?0107
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 24  
+
+                                           ; SOURCE LINE # 596
+0104 7B01              MOV     R3,#01H
+0106 7DFF              MOV     R5,#0FFH
+0108 7F20              MOV     R7,#020H
+010A 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 597
+010D 120000      R     LCALL   L?0106
+                                           ; SOURCE LINE # 598
+0110 7E00        E     MOV     R6,#HIGH OSD_Reset
+0112 7F00        E     MOV     R7,#LOW OSD_Reset
+0114 120000      E     LCALL   _RTDOSDW
+                                           ; SOURCE LINE # 599
+0117         ?C0085:
+                                           ; SOURCE LINE # 602
+0117 7F83              MOV     R7,#083H
+0119 120000      E     LCALL   _OSD_Proc
+                                           ; SOURCE LINE # 604
+011C E500        R     MOV     A,ucPage_Curr
+011E 7048              JNZ     ?C0094
+                                           ; SOURCE LINE # 605
+                                           ; SOURCE LINE # 609
+0120 020000      E     LJMP    OSD_Opening
+                                           ; SOURCE LINE # 610
+                                           ; SOURCE LINE # 611
+0123         ?C0084:
+                                           ; SOURCE LINE # 613
+                                           ; SOURCE LINE # 616
+0123 E4                CLR     A
+                                           ; SOURCE LINE # 617
+                                           ; SOURCE LINE # 618
+0124 120000      R     LCALL   L?0108
+                                           ; SOURCE LINE # 620
+0127 7D40              MOV     R5,#040H
+0129 7F02              MOV     R7,#02H
+012B 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 622
+012E 020000      E     LJMP    OSD_Ending
+                                           ; SOURCE LINE # 625
+                                           ; SOURCE LINE # 626
+0131         ?C0083:
+                                           ; SOURCE LINE # 628
+                                           ; SOURCE LINE # 630
+0131 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+0133 E6                MOV     A,@R0
+0134 602E              JZ      ?C0089
+                                           ; SOURCE LINE # 631
+                                           ; SOURCE LINE # 632
+0136 E500        R     MOV     A,message
+0138 B48310            CJNE    A,#083H,?C0090
+                                           ; SOURCE LINE # 633
+                                           ; SOURCE LINE # 634
+013B 7E00        E     MOV     R6,#HIGH OSD_Enable
+013D 7F00        E     MOV     R7,#LOW OSD_Enable
+013F 120000      E     LCALL   _RTDCodeW
+                                           ; SOURCE LINE # 635
+0142 7B01              MOV     R3,#01H
+0144 7DFE              MOV     R5,#0FEH
+0146 7F6D              MOV     R7,#06DH
+0148 120000      E     LCALL   _RTDSetBit
+                                           ; SOURCE LINE # 636
+014B         ?C0090:
+                                           ; SOURCE LINE # 639
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 25  
+
+014B E500        R     MOV     A,message
+014D 6403              XRL     A,#03H
+014F 6005              JZ      ?C0092
+0151 E500        R     MOV     A,message
+0153 B40412            CJNE    A,#04H,?C0094
+0156         ?C0092:
+                                           ; SOURCE LINE # 640
+                                           ; SOURCE LINE # 642
+0156 E4                CLR     A
+0157 FD                MOV     R5,A
+0158 7F01              MOV     R7,#01H
+015A 120000      E     LCALL   _RTDSetByte
+                                           ; SOURCE LINE # 643
+015D E4                CLR     A
+015E FD                MOV     R5,A
+015F 7F1F              MOV     R7,#01FH
+0161 020000      E     LJMP    _RTDSetByte
+                                           ; SOURCE LINE # 645
+                                           ; SOURCE LINE # 657
+0164         ?C0089:
+                                           ; SOURCE LINE # 659
+                                           ; SOURCE LINE # 662
+0164 E4                CLR     A
+0165 7800        E     MOV     R0,#LOW ucStatus
+0167 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 666
+                                           ; SOURCE LINE # 667
+                                           ; SOURCE LINE # 668
+                                           ; SOURCE LINE # 669
+                                           ; SOURCE LINE # 670
+                                           ; SOURCE LINE # 671
+0168         ?C0094:
+0168 22                RET     
+0169         L?0101:
+0169 7D40              MOV     R5,#040H
+016B 7F02              MOV     R7,#02H
+016D 120000      E     LCALL   _RTDSetByte
+0170 E4                CLR     A
+0171 FB                MOV     R3,A
+0172 7DFE              MOV     R5,#0FEH
+0174 7F6D              MOV     R7,#06DH
+0176 120000      E     LCALL   _RTDSetBit
+0179 7E00        E     MOV     R6,#HIGH OSD_Reset
+017B 7F00        E     MOV     R7,#LOW OSD_Reset
+017D 22                RET     
+017E         L?0102:
+017E 7D3F              MOV     R5,#03FH
+0180 7F6D              MOV     R7,#06DH
+0182 120000      E     LCALL   _RTDSetBit
+0185 E4                CLR     A
+0186 FB                MOV     R3,A
+0187 FD                MOV     R5,A
+0188 7F6C              MOV     R7,#06CH
+018A 120000      E     LCALL   _RTDSetBit
+018D 22                RET     
+018E         L?0106:
+018E E4                CLR     A
+018F FB                MOV     R3,A
+0190 7DFE              MOV     R5,#0FEH
+0192 7F6D              MOV     R7,#06DH
+0194 120000      E     LCALL   _RTDSetBit
+0197 22                RET     
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 26  
+
+0198         L?0107:
+0198 7D40              MOV     R5,#040H
+019A 7F02              MOV     R7,#02H
+019C 120000      E     LCALL   _RTDSetByte
+019F 22                RET     
+             ; FUNCTION _OSD_Dispatcher (END)
+
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 27  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+_Change_Source . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+b_rgb_VOLUME_STATUS. . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+P3 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B0H  1
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+Save_GUD3. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_RTDOSDW . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+_RTDSetByte. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 28  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+OSD_Enable . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+Key_Trans. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  ucP3_Prev. . . . . . . . . . . . . .  STATIC   IDATA  U_CHAR   0000H  1
+  ucP3_Curr. . . . . . . . . . . . . .  STATIC   IDATA  U_CHAR   0001H  1
+  ucKey_Repeat . . . . . . . . . . . .  STATIC   IDATA  U_CHAR   0002H  1
+  ucNotify . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0000H  1
+Show_Hint. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+_RTDSetBit . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+Show_Note. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+OSD_Opening. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bKeyTurbo. . . . . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+OSD_Ending . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_RTDCodeW. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+usTaskCnt. . . . . . . . . . . . . . .  EXTERN   IDATA  U_INT    -----  2
+bRIGHT_KEY . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B4H  1
+SCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0098H  1
+usOSD_Timer. . . . . . . . . . . . . .  EXTERN   IDATA  U_INT    -----  2
+_OSD_Dispatcher. . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  message. . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0000H  1
+  ucPage_Curr. . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0001H  1
+TCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0088H  1
+_OSD_Proc. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bReload. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+ucOSD_Item_Index0. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+ucOSD_Item_Index1. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+ucOSD_Item_Index2. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+OSD_Reset. . . . . . . . . . . . . . .  EXTERN   CODE   ARRAY    -----  -----
+GetKeyState. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  ucKeyState . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+M512_Port60. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+ucKey_Issued . . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0003H  1
+M512_Port54. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+M512_Port55. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+bLEFT_KEY. . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B5H  1
+bPower_Status. . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+ucMode_Curr. . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+C51 COMPILER V7.06   LCD_MSG                                                               11/21/2005 13:47:29 PAGE 29  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+ucStatus . . . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+T2CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+_Delay_Xms . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+stGUD1 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  8
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+ucOSD_Page_Index . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+stGUD3 . . . . . . . . . . . . . . . .  EXTERN   DATA   STRUCT   -----  5
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    860    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       3
+   IDATA SIZE       =      4    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,8 @@
+---- setmute Matches (7 in 5 files) ----
+Lcd_func.c (code):void SetMute(bit val)
+Lcd_main.c (code):                            SetMute(0);
+Lcd_main.c (code)://    SetMute(1);//val = 1 open sound , val =0 close sound 			//anson
+Power_Ctrl.c (code):                SetMute(0);
+Rgb_echo.c (code):          SetMute(1);
+Lcd_func.h (header):void SetMute(bit val);
+Lcd_func.h (header):extern void SetMute(bit val);

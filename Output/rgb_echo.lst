@@ -1,0 +1,1120 @@
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE RGB_ECHO
+OBJECT MODULE PLACED IN .\Output\rgb_echo.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\rgb_echo.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PR
+                    -INT(.\Output\rgb_echo.lst) PREPRINT(.\Output\rgb_echo.i) OBJECT(.\Output\rgb_echo.obj)
+
+stmt level    source
+
+   1          
+   2          #include "reg52.h" 
+   3          #include "Header\MTV512.H"
+   4          
+   5          #include "Header\MAIN_DEF.H"
+   6          #include "Header\CONFIG.H"
+   7          #include "Header\ACCESS.H"
+   8          #include "Header\LCD_FUNC.H"
+   9          //#include "Header\LCD_AUTO.H"
+  10          //#include "Header\LCD_MSG.H"
+  11          #include "Header\LCD_MAIN.H"
+  12          #include "Header\LCD_OSD.H"
+  13          //#include "Header\FONT.H"
+  14          #include "Header\OSD.H"
+  15          //#include "Header\SRC_CTRL.H"
+  16          //#include "Header\OSD_TREE.H"
+  17          #include "Header\rgb_echo.H"
+  18          
+  19          /*
+  20          void rgb_OSD_Slider(unsigned char row, unsigned char col, unsigned char length, unsigned char value, unsig
+             -ned char range,
+  21                          unsigned char color, unsigned char color_slider)
+  22          {
+  23          
+  24          //--------------設定 1 bit font 起始位置
+  25                  Data[0] = 5;
+  26                  Data[1] = Y_INC;
+  27                  Data[2] = OSD_ADDR_MSB_90;
+  28                  Data[3] = 0x50; // | (usStart_Addr >> 8);
+  29                  Data[4] = col;  //0x00 | (usStart_Addr & 0x00ff);
+  30                  Data[5] = 0;
+  31                  RTDWrite(Data);
+  32          
+  33          
+  34          //---------------畫左圓弧
+  35              Data[0] = 4;
+  36                  Data[1] = N_INC;
+  37                  Data[2] = OSD_DATA_92;
+  38                  Data[3] = 0x1a; 
+  39              Data[4] = 4;
+  40              Data[5] = BURST;
+  41              Data[6] = OSD_DATA_92;
+  42              Data[7] =
+  43              
+  44                  RTDWrite(Data);
+  45          
+  46          
+  47          }
+  48          
+  49          */
+  50          
+  51          //              rgb_OSD_Slider(0, 16, 12, 0x1f - stGUD3.VOLUME, 0x1f, 4, 14);
+  52          
+  53          void rgb_OSD_Slider(unsigned char row, unsigned char col, unsigned char length, unsigned char value, unsig
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 2   
+
+             -ned char range,
+  54                          unsigned char color, unsigned char color_slider)
+  55          {
+  56   1              unsigned int idata usStart_Addr;
+  57   1      //      unsigned char idata ucTemp;
+  58   1              unsigned int bound;
+  59   1      
+  60   1              usStart_Addr = 0;
+  61   1      
+  62   1      //      for(ucTemp = 1; ucTemp < row+1; ucTemp ++)
+  63   1      //              usStart_Addr += Row_Info[0][ucTemp];
+  64   1      
+  65   1          usStart_Addr = col;
+  66   1      
+  67   1              length = length -5;
+  68   1              bound   = ((length-2)*6 + 2*3) * value;
+  69   1      
+  70   1              // Set color
+  71   1              Data[0] = 6;
+  72   1              Data[1] = Y_INC;
+  73   1              Data[2] = OSD_ADDR_MSB_90;
+  74   1              Data[3] = (unsigned char)((((usStart_Addr + col) >>8 ) & 0x0f ) | 0x90);
+  75   1              Data[4] = (unsigned char)( (usStart_Addr + col) & 0x00ff);
+  76   1              Data[5] = (color << 4) & 0xf0;          
+  77   1              Data[6] = 0;
+  78   1              RTDWrite(Data);
+  79   1      
+  80   1              Data[0] = 5;
+  81   1              Data[1] = N_INC;
+  82   1              Data[2] = OSD_DATA_92;
+  83   1              Data[3] = (color << 4) & 0xf0;          
+  84   1              Data[4] = (color << 4) & 0xf0;          
+  85   1              Data[5] = 0;
+  86   1              RTDWrite(Data);
+  87   1      
+  88   1              OSD_Line(row,col+5,12,((color_slider<<4) & 0xf0),2);
+  89   1              Data[0] = 6;
+  90   1              Data[1] = Y_INC;
+  91   1              Data[2] = OSD_ADDR_MSB_90;
+  92   1      
+  93   1              Data[6] = 0;
+  94   1      
+  95   1              for (row = 0; row < length; row++)
+  96   1              {
+  97   2                      Data[3] = (unsigned char)((((usStart_Addr + col + row + 5) >> 8 ) & 0x0f ) | 0x50);
+  98   2                      Data[4] = (unsigned char)( (usStart_Addr + col + row + 5) & 0x00ff);
+  99   2      
+ 100   2                      if( row == 0 || row == (length-1) )
+ 101   2                      {
+ 102   3                              if( bound )
+ 103   3                              {
+ 104   4                                      if( bound >= (range*3) )
+ 105   4                                      {
+ 106   5                                              Data[5] = (row==0) ? 0x13 : 0x1e;
+ 107   5                                              bound = bound - range*3;
+ 108   5                                      }
+ 109   4                                      else
+ 110   4                                      {
+ 111   5                                      color   = (bound << 4) / (range*3);
+ 112   5                                              bound = 0;
+ 113   5              
+ 114   5                                              if (4 > color)
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 3   
+
+ 115   5                                                      Data[5] = (row==0) ? 0x10 : 0x1b;       
+ 116   5                                              else if (8 > color)
+ 117   5                                                      Data[5] = (row==0) ? 0x11 : 0x1c;
+ 118   5                                              else if (12 > color)
+ 119   5                                                      Data[5] = (row==0) ? 0x12 : 0x1d;
+ 120   5                                              else
+ 121   5                                                      Data[5] = (row==0) ? 0x13 : 0x1e;
+ 122   5                                      }
+ 123   4                              }
+ 124   3                              else
+ 125   3                              {
+ 126   4                                      Data[5] = (row==0) ? 0x10 : 0x1b;       
+ 127   4                              }
+ 128   3                      }
+ 129   2                      else
+ 130   2                      {
+ 131   3                              if( bound )
+ 132   3                              {
+ 133   4                                      if( bound >= (range*6) )
+ 134   4                                      {
+ 135   5                                              Data[5] = 0x1a;
+ 136   5                                              bound = bound - range*6;
+ 137   5                                      }
+ 138   4                                      else
+ 139   4                                      {
+ 140   5                                              color   = (bound << 4) / (range*6);
+ 141   5                                              bound = 0;
+ 142   5              
+ 143   5                                              if (1 > color)
+ 144   5                                                      Data[5] = 0x14;
+ 145   5                                              else if (4 > color)
+ 146   5                                                      Data[5] = 0x15;
+ 147   5                                              else if (6 > color)
+ 148   5                                                      Data[5] = 0x16;
+ 149   5                                              else if (9 > color)
+ 150   5                                                      Data[5] = 0x17;
+ 151   5                                              else if (11 > color)
+ 152   5                                                      Data[5] = 0x18;
+ 153   5                                              else if (14 > color)
+ 154   5                                                      Data[5] = 0x19;
+ 155   5                                              else
+ 156   5                                                      Data[5] = 0x1a;
+ 157   5                                      }
+ 158   4                              }
+ 159   3                              else
+ 160   3                              {
+ 161   4                                      Data[5] = 0x14;
+ 162   4                              }
+ 163   3                      
+ 164   3                      }
+ 165   2      
+ 166   2                      RTDWrite(Data);
+ 167   2                      
+ 168   2              }
+ 169   1      
+ 170   1              range   = value / 10;
+ 171   1              row             = value - (range * 10); // x1
+ 172   1              color   = range / 10;                   // x100
+ 173   1              range   = range - (color * 10); // x10
+ 174   1      
+ 175   1              row             = row + 0x01;
+ 176   1              range   = (range || color) ? range + 0x01 : 0x00;
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 4   
+
+ 177   1              color   = color ? color + 0x01 : 0x00;
+ 178   1      
+ 179   1              Data[0] = 5;
+ 180   1              Data[1] = Y_INC;
+ 181   1              Data[2] = OSD_ADDR_MSB_90;
+ 182   1              Data[3] = (unsigned char)((((usStart_Addr + col) >>8 ) & 0x0f ) | 0x50);
+ 183   1              Data[4] = (unsigned char)( (usStart_Addr + col ) & 0x00ff);
+ 184   1              Data[5] = 0;
+ 185   1              RTDWrite(Data);
+ 186   1      
+ 187   1              Data[0] = 6;
+ 188   1              Data[1] = N_INC;
+ 189   1              Data[2] = OSD_DATA_92;
+ 190   1              Data[3] = color;                // Number x100
+ 191   1              Data[4] = range;                // Number x10
+ 192   1              Data[5] = row;          // Number x1
+ 193   1              Data[6] = 0;
+ 194   1              RTDWrite(Data);
+ 195   1      
+ 196   1      }
+ 197          
+ 198          void rgb_LED_LIGHT_CONTROL(void)
+ 199          {
+ 200   1              if ((bStable)&& (bPower_Status) && (MODE_NOSIGNAL != ucMode_Curr)&& (MODE_NOSUPPORT != ucMode_Curr
+             -)) //anson
+ 201   1              {
+ 202   2                SetMute(1);
+ 203   2                bGREEN_LED = 0;
+ 204   2                bRED_LED   = 1;
+ 205   2              }
+ 206   1              else 
+ 207   1              {
+ 208   2                  if (!bPower_Status)
+ 209   2                  {
+ 210   3                     bRED_LED   = 1;                  //anson MTV512  1 = off 0 = on
+ 211   3                     bGREEN_LED = 1;                  //              Tp2804  1 = on  0 = off
+ 212   3                  }
+ 213   2                  else
+ 214   2                  {
+ 215   3                     bRED_LED   = 0;
+ 216   3                     bGREEN_LED = 1;
+ 217   3                  }
+ 218   2              }
+ 219   1      }
+ 220          
+ 221          
+ 222          void rgb_EXIT_KEY(void)
+ 223          {
+ 224   1                 if(ucOSD_Page_Index)
+ 225   1                 {
+ 226   2                   if (ucOSD_Item_Index0)
+ 227   2                   {
+ 228   3                     if (ucOSD_Item_Index1)
+ 229   3                     {
+ 230   4                       if (ucOSD_Item_Index2)
+ 231   4                       {
+ 232   5                         ucOSD_Item_Index2 = 0;
+ 233   5                       }
+ 234   4                       else
+ 235   4                       {
+ 236   5                         ucOSD_Item_Index1 = 0;
+ 237   5                       }
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 5   
+
+ 238   4                     }
+ 239   3                     else
+ 240   3                     {
+ 241   4                       ucOSD_Item_Index0 = 0;
+ 242   4                         OSD_Window( 6, 150, 282, (54 + (ucOSD_Item_Index0-1)*(29+4)), (84 + (ucOSD_Item_Index0-
+             -1)*(29+4))
+ 243   4                                      , 0, 0, 14, 251, 0, 1, 0);
+ 244   4      
+ 245   4                     }
+ 246   3                   }
+ 247   2                   else
+ 248   2                   {
+ 249   3                     ucOSD_Page_Index = 0;
+ 250   3                   }
+ 251   2                 }
+ 252   1      
+ 253   1      }
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 6   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION Com0042 (BEGIN)
+0000         L?0067:
+0000 E500        R     MOV     A,range
+0002 A4                MUL     AB
+0003 FD                MOV     R5,A
+0004 ACF0              MOV     R4,B
+0006 E500        R     MOV     A,bound+01H
+0008 C4                SWAP    A
+0009 F8                MOV     R0,A
+000A 540F              ANL     A,#0FH
+000C C8                XCH     A,R0
+000D 68                XRL     A,R0
+000E FF                MOV     R7,A
+000F E500        R     MOV     A,bound
+0011 C4                SWAP    A
+0012 54F0              ANL     A,#0F0H
+0014 48                ORL     A,R0
+0015 FE                MOV     R6,A
+0016 120000      E     LCALL   ?C?UIDIV
+0019 8F00        R     MOV     color,R7
+001B E4                CLR     A
+001C F500        R     MOV     bound,A
+001E F500        R     MOV     bound+01H,A
+0020 22                RET     
+0021         L?0068:
+0021 540F              ANL     A,#0FH
+0023 4450              ORL     A,#050H
+0025         L?0069:
+0025 F500        E     MOV     Data+03H,A
+0027 08                INC     R0
+0028 E6                MOV     A,@R0
+0029 2500        R     ADD     A,col
+002B 22                RET     
+002C         L?0070:
+002C E500        R     MOV     A,range
+002E A4                MUL     AB
+002F FF                MOV     R7,A
+0030 AEF0              MOV     R6,B
+0032 C3                CLR     C
+0033 E500        R     MOV     A,bound+01H
+0035 9F                SUBB    A,R7
+0036 E500        R     MOV     A,bound
+0038 9E                SUBB    A,R6
+0039 22                RET     
+003A         L?0071:
+003A 750006      E     MOV     Data,#06H
+003D         L?0072:
+003D E4                CLR     A
+003E F500        E     MOV     Data+01H,A
+0040 750090      E     MOV     Data+02H,#090H
+0043 22                RET     
+0044         L?0074:
+0044 FF                MOV     R7,A
+0045 7E00              MOV     R6,#00H
+0047 7C00              MOV     R4,#00H
+0049 120000      E     LCALL   ?C?IMUL
+004C EF                MOV     A,R7
+004D 22                RET     
+             ; FUNCTION Com0042 (END)
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 7   
+
+
+             ; FUNCTION _rgb_OSD_Slider (BEGIN)
+                                           ; SOURCE LINE # 53
+0000 8F00        R     MOV     row,R7
+0002 8D00        R     MOV     col,R5
+0004 8B00        R     MOV     length,R3
+                                           ; SOURCE LINE # 55
+                                           ; SOURCE LINE # 60
+0006 E4                CLR     A
+0007 7800        R     MOV     R0,#LOW usStart_Addr
+0009 F6                MOV     @R0,A
+000A 08                INC     R0
+000B F6                MOV     @R0,A
+                                           ; SOURCE LINE # 65
+000C E500        R     MOV     A,col
+000E FB                MOV     R3,A
+000F 7A00              MOV     R2,#00H
+0011 18                DEC     R0
+0012 A602              MOV     @R0,AR2
+0014 08                INC     R0
+0015 A603              MOV     @R0,AR3
+                                           ; SOURCE LINE # 67
+0017 74FB              MOV     A,#0FBH
+0019 2500        R     ADD     A,length
+001B F500        R     MOV     length,A
+                                           ; SOURCE LINE # 68
+001D 7D06              MOV     R5,#06H
+001F 120000      R     LCALL   L?0074
+0022 24FA              ADD     A,#0FAH
+0024 FF                MOV     R7,A
+0025 EE                MOV     A,R6
+0026 34FF              ADDC    A,#0FFH
+0028 FE                MOV     R6,A
+0029 AD00        R     MOV     R5,value
+002B 120000      E     LCALL   ?C?IMUL
+002E 8E00        R     MOV     bound,R6
+0030 8F00        R     MOV     bound+01H,R7
+                                           ; SOURCE LINE # 71
+                                           ; SOURCE LINE # 72
+                                           ; SOURCE LINE # 73
+0032 120000      R     LCALL   L?0071
+                                           ; SOURCE LINE # 74
+0035 EB                MOV     A,R3
+0036 7800        R     MOV     R0,#LOW usStart_Addr+01H
+0038 26                ADD     A,@R0
+0039 EA                MOV     A,R2
+003A 18                DEC     R0
+003B 36                ADDC    A,@R0
+003C 540F              ANL     A,#0FH
+003E 4490              ORL     A,#090H
+                                           ; SOURCE LINE # 75
+0040 120000      R     LCALL   L?0069
+0043 F500        E     MOV     Data+04H,A
+                                           ; SOURCE LINE # 76
+0045 E500        R     MOV     A,color
+0047 C4                SWAP    A
+0048 54F0              ANL     A,#0F0H
+004A F500        E     MOV     Data+05H,A
+                                           ; SOURCE LINE # 77
+004C E4                CLR     A
+004D F500        E     MOV     Data+06H,A
+                                           ; SOURCE LINE # 78
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 8   
+
+004F 7F00        E     MOV     R7,#LOW Data
+0051 120000      E     LCALL   _RTDWrite
+                                           ; SOURCE LINE # 80
+0054 750005      E     MOV     Data,#05H
+                                           ; SOURCE LINE # 81
+0057 750001      E     MOV     Data+01H,#01H
+                                           ; SOURCE LINE # 82
+005A 750092      E     MOV     Data+02H,#092H
+                                           ; SOURCE LINE # 83
+005D E500        R     MOV     A,color
+005F C4                SWAP    A
+0060 54F0              ANL     A,#0F0H
+0062 F500        E     MOV     Data+03H,A
+                                           ; SOURCE LINE # 84
+                                           ; SOURCE LINE # 85
+                                           ; SOURCE LINE # 86
+0064 120000      R     LCALL   L?0073
+                                           ; SOURCE LINE # 88
+0067 E500        R     MOV     A,col
+0069 2405              ADD     A,#05H
+006B FD                MOV     R5,A
+006C E500        R     MOV     A,color_slider
+006E C4                SWAP    A
+006F 54F0              ANL     A,#0F0H
+0071 F500        E     MOV     ?_OSD_Line?BYTE+03H,A
+0073 750002      E     MOV     ?_OSD_Line?BYTE+04H,#02H
+0076 7B0C              MOV     R3,#0CH
+0078 AF00        R     MOV     R7,row
+007A 120000      E     LCALL   _OSD_Line
+                                           ; SOURCE LINE # 89
+                                           ; SOURCE LINE # 90
+                                           ; SOURCE LINE # 91
+007D 120000      R     LCALL   L?0071
+                                           ; SOURCE LINE # 93
+0080 F500        E     MOV     Data+06H,A
+                                           ; SOURCE LINE # 95
+0082 F500        R     MOV     row,A
+0084         ?C0001:
+0084 E500        R     MOV     A,row
+0086 C3                CLR     C
+0087 9500        R     SUBB    A,length
+0089 4003              JC      $ + 5H
+008B 020000      R     LJMP    ?C0002
+                                           ; SOURCE LINE # 96
+                                           ; SOURCE LINE # 97
+008E E500        R     MOV     A,col
+0090 7800        R     MOV     R0,#LOW usStart_Addr+01H
+0092 26                ADD     A,@R0
+0093 FF                MOV     R7,A
+0094 E4                CLR     A
+0095 18                DEC     R0
+0096 36                ADDC    A,@R0
+0097 FE                MOV     R6,A
+0098 7C00              MOV     R4,#00H
+009A EF                MOV     A,R7
+009B 2500        R     ADD     A,row
+009D FF                MOV     R7,A
+009E EC                MOV     A,R4
+009F 3E                ADDC    A,R6
+00A0 CF                XCH     A,R7
+00A1 2405              ADD     A,#05H
+00A3 CF                XCH     A,R7
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 9   
+
+00A4 3400              ADDC    A,#00H
+                                           ; SOURCE LINE # 98
+00A6 120000      R     LCALL   L?0068
+00A9 2500        R     ADD     A,row
+00AB 2405              ADD     A,#05H
+00AD F500        E     MOV     Data+04H,A
+                                           ; SOURCE LINE # 100
+00AF E500        R     MOV     A,row
+00B1 600A              JZ      ?C0005
+00B3 E500        R     MOV     A,length
+00B5 14                DEC     A
+00B6 6500        R     XRL     A,row
+00B8 6003              JZ      $ + 5H
+00BA 020000      R     LJMP    ?C0004
+00BD         ?C0005:
+                                           ; SOURCE LINE # 101
+                                           ; SOURCE LINE # 102
+00BD E500        R     MOV     A,bound+01H
+00BF 4500        R     ORL     A,bound
+00C1 606F              JZ      ?C0006
+                                           ; SOURCE LINE # 103
+                                           ; SOURCE LINE # 104
+00C3 75F003            MOV     B,#03H
+00C6 120000      R     LCALL   L?0070
+00C9 4010              JC      ?C0007
+                                           ; SOURCE LINE # 105
+                                           ; SOURCE LINE # 106
+00CB E500        R     MOV     A,row
+00CD 7004              JNZ     ?C0008
+00CF 7D13              MOV     R5,#013H
+00D1 8002              SJMP    ?C0009
+00D3         ?C0008:
+00D3 7D1E              MOV     R5,#01EH
+00D5         ?C0009:
+00D5 8D00        E     MOV     Data+05H,R5
+                                           ; SOURCE LINE # 107
+00D7 C3                CLR     C
+                                           ; SOURCE LINE # 108
+00D8 020000      R     LJMP    ?C0064
+00DB         ?C0007:
+                                           ; SOURCE LINE # 110
+                                           ; SOURCE LINE # 111
+00DB 75F003            MOV     B,#03H
+                                           ; SOURCE LINE # 112
+00DE 120000      R     LCALL   L?0067
+                                           ; SOURCE LINE # 114
+00E1 7404              MOV     A,#04H
+00E3 D3                SETB    C
+00E4 9500        R     SUBB    A,color
+00E6 400F              JC      ?C0011
+                                           ; SOURCE LINE # 115
+00E8 E500        R     MOV     A,row
+00EA 7004              JNZ     ?C0012
+00EC 7F10              MOV     R7,#010H
+00EE 8002              SJMP    ?C0013
+00F0         ?C0012:
+00F0 7F1B              MOV     R7,#01BH
+00F2         ?C0013:
+00F2 8F00        E     MOV     Data+05H,R7
+00F4 020000      R     LJMP    ?C0028
+00F7         ?C0011:
+                                           ; SOURCE LINE # 116
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 10  
+
+00F7 7408              MOV     A,#08H
+00F9 D3                SETB    C
+00FA 9500        R     SUBB    A,color
+00FC 400F              JC      ?C0015
+                                           ; SOURCE LINE # 117
+00FE E500        R     MOV     A,row
+0100 7004              JNZ     ?C0016
+0102 7F11              MOV     R7,#011H
+0104 8002              SJMP    ?C0017
+0106         ?C0016:
+0106 7F1C              MOV     R7,#01CH
+0108         ?C0017:
+0108 8F00        E     MOV     Data+05H,R7
+010A 020000      R     LJMP    ?C0028
+010D         ?C0015:
+                                           ; SOURCE LINE # 118
+010D 740C              MOV     A,#0CH
+010F D3                SETB    C
+0110 9500        R     SUBB    A,color
+0112 400F              JC      ?C0019
+                                           ; SOURCE LINE # 119
+0114 E500        R     MOV     A,row
+0116 7004              JNZ     ?C0020
+0118 7F12              MOV     R7,#012H
+011A 8002              SJMP    ?C0021
+011C         ?C0020:
+011C 7F1D              MOV     R7,#01DH
+011E         ?C0021:
+011E 8F00        E     MOV     Data+05H,R7
+0120 020000      R     LJMP    ?C0028
+0123         ?C0019:
+                                           ; SOURCE LINE # 121
+0123 E500        R     MOV     A,row
+0125 7004              JNZ     ?C0023
+0127 7F13              MOV     R7,#013H
+0129 8002              SJMP    ?C0024
+012B         ?C0023:
+012B 7F1E              MOV     R7,#01EH
+012D         ?C0024:
+012D 8F00        E     MOV     Data+05H,R7
+                                           ; SOURCE LINE # 122
+                                           ; SOURCE LINE # 123
+012F 020000      R     LJMP    ?C0028
+0132         ?C0006:
+                                           ; SOURCE LINE # 125
+                                           ; SOURCE LINE # 126
+0132 E500        R     MOV     A,row
+0134 7004              JNZ     ?C0026
+0136 7F10              MOV     R7,#010H
+0138 8002              SJMP    ?C0027
+013A         ?C0026:
+013A 7F1B              MOV     R7,#01BH
+013C         ?C0027:
+013C 8F00        E     MOV     Data+05H,R7
+                                           ; SOURCE LINE # 127
+                                           ; SOURCE LINE # 128
+013E 020000      R     LJMP    ?C0028
+0141         ?C0004:
+                                           ; SOURCE LINE # 130
+                                           ; SOURCE LINE # 131
+0141 E500        R     MOV     A,bound+01H
+0143 4500        R     ORL     A,bound
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 11  
+
+0145 6066              JZ      ?C0029
+                                           ; SOURCE LINE # 132
+                                           ; SOURCE LINE # 133
+0147 75F006            MOV     B,#06H
+014A 120000      R     LCALL   L?0070
+014D 400F              JC      ?C0030
+                                           ; SOURCE LINE # 134
+                                           ; SOURCE LINE # 135
+014F 75001A      E     MOV     Data+05H,#01AH
+                                           ; SOURCE LINE # 136
+0152         ?C0064:
+0152 E500        R     MOV     A,bound+01H
+0154 9F                SUBB    A,R7
+0155 F500        R     MOV     bound+01H,A
+0157 E500        R     MOV     A,bound
+0159 9E                SUBB    A,R6
+015A F500        R     MOV     bound,A
+                                           ; SOURCE LINE # 137
+015C 8052              SJMP    ?C0028
+015E         ?C0030:
+                                           ; SOURCE LINE # 139
+                                           ; SOURCE LINE # 140
+015E 75F006            MOV     B,#06H
+                                           ; SOURCE LINE # 141
+0161 120000      R     LCALL   L?0067
+                                           ; SOURCE LINE # 143
+0164 04                INC     A
+0165 D3                SETB    C
+0166 9500        R     SUBB    A,color
+0168 4002              JC      ?C0032
+                                           ; SOURCE LINE # 144
+016A 8041              SJMP    ?C0065
+016C         ?C0032:
+                                           ; SOURCE LINE # 145
+016C 7404              MOV     A,#04H
+016E D3                SETB    C
+016F 9500        R     SUBB    A,color
+0171 4005              JC      ?C0034
+                                           ; SOURCE LINE # 146
+0173 750015      E     MOV     Data+05H,#015H
+0176 8038              SJMP    ?C0028
+0178         ?C0034:
+                                           ; SOURCE LINE # 147
+0178 7406              MOV     A,#06H
+017A D3                SETB    C
+017B 9500        R     SUBB    A,color
+017D 4005              JC      ?C0036
+                                           ; SOURCE LINE # 148
+017F 750016      E     MOV     Data+05H,#016H
+0182 802C              SJMP    ?C0028
+0184         ?C0036:
+                                           ; SOURCE LINE # 149
+0184 7409              MOV     A,#09H
+0186 D3                SETB    C
+0187 9500        R     SUBB    A,color
+0189 4005              JC      ?C0038
+                                           ; SOURCE LINE # 150
+018B 750017      E     MOV     Data+05H,#017H
+018E 8020              SJMP    ?C0028
+0190         ?C0038:
+                                           ; SOURCE LINE # 151
+0190 740B              MOV     A,#0BH
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 12  
+
+0192 D3                SETB    C
+0193 9500        R     SUBB    A,color
+0195 4005              JC      ?C0040
+                                           ; SOURCE LINE # 152
+0197 750018      E     MOV     Data+05H,#018H
+019A 8014              SJMP    ?C0028
+019C         ?C0040:
+                                           ; SOURCE LINE # 153
+019C 740E              MOV     A,#0EH
+019E D3                SETB    C
+019F 9500        R     SUBB    A,color
+01A1 4005              JC      ?C0042
+                                           ; SOURCE LINE # 154
+01A3 750019      E     MOV     Data+05H,#019H
+01A6 8008              SJMP    ?C0028
+01A8         ?C0042:
+                                           ; SOURCE LINE # 156
+01A8 75001A      E     MOV     Data+05H,#01AH
+                                           ; SOURCE LINE # 157
+                                           ; SOURCE LINE # 158
+01AB 8003              SJMP    ?C0028
+01AD         ?C0029:
+                                           ; SOURCE LINE # 160
+                                           ; SOURCE LINE # 161
+01AD         ?C0065:
+01AD 750014      E     MOV     Data+05H,#014H
+                                           ; SOURCE LINE # 162
+                                           ; SOURCE LINE # 164
+01B0         ?C0028:
+                                           ; SOURCE LINE # 166
+01B0 7F00        E     MOV     R7,#LOW Data
+01B2 120000      E     LCALL   _RTDWrite
+                                           ; SOURCE LINE # 168
+01B5 0500        R     INC     row
+01B7 020000      R     LJMP    ?C0001
+01BA         ?C0002:
+                                           ; SOURCE LINE # 170
+01BA E500        R     MOV     A,value
+01BC 75F00A            MOV     B,#0AH
+01BF 84                DIV     AB
+01C0 F500        R     MOV     range,A
+                                           ; SOURCE LINE # 171
+01C2 75F00A            MOV     B,#0AH
+01C5 A4                MUL     AB
+01C6 FF                MOV     R7,A
+01C7 C3                CLR     C
+01C8 E500        R     MOV     A,value
+01CA 9F                SUBB    A,R7
+01CB F500        R     MOV     row,A
+                                           ; SOURCE LINE # 172
+01CD E500        R     MOV     A,range
+01CF 75F00A            MOV     B,#0AH
+01D2 84                DIV     AB
+01D3 F500        R     MOV     color,A
+                                           ; SOURCE LINE # 173
+01D5 75F00A            MOV     B,#0AH
+01D8 A4                MUL     AB
+01D9 FF                MOV     R7,A
+01DA C3                CLR     C
+01DB E500        R     MOV     A,range
+01DD 9F                SUBB    A,R7
+01DE F500        R     MOV     range,A
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 13  
+
+                                           ; SOURCE LINE # 175
+01E0 0500        R     INC     row
+                                           ; SOURCE LINE # 176
+01E2 7004              JNZ     ?C0047
+01E4 E500        R     MOV     A,color
+01E6 6006              JZ      ?C0045
+01E8         ?C0047:
+01E8 E500        R     MOV     A,range
+01EA 04                INC     A
+01EB FF                MOV     R7,A
+01EC 8002              SJMP    ?C0046
+01EE         ?C0045:
+01EE 7F00              MOV     R7,#00H
+01F0         ?C0046:
+01F0 8F00        R     MOV     range,R7
+                                           ; SOURCE LINE # 177
+01F2 E500        R     MOV     A,color
+01F4 6004              JZ      ?C0048
+01F6 04                INC     A
+01F7 FF                MOV     R7,A
+01F8 8002              SJMP    ?C0049
+01FA         ?C0048:
+01FA 7F00              MOV     R7,#00H
+01FC         ?C0049:
+01FC 8F00        R     MOV     color,R7
+                                           ; SOURCE LINE # 179
+01FE 750005      E     MOV     Data,#05H
+                                           ; SOURCE LINE # 180
+                                           ; SOURCE LINE # 181
+0201 120000      R     LCALL   L?0072
+                                           ; SOURCE LINE # 182
+0204 E500        R     MOV     A,col
+0206 7800        R     MOV     R0,#LOW usStart_Addr+01H
+0208 26                ADD     A,@R0
+0209 E4                CLR     A
+020A 18                DEC     R0
+020B 36                ADDC    A,@R0
+                                           ; SOURCE LINE # 183
+020C 120000      R     LCALL   L?0068
+                                           ; SOURCE LINE # 184
+                                           ; SOURCE LINE # 185
+020F 120000      R     LCALL   L?0073
+                                           ; SOURCE LINE # 187
+0212 750006      E     MOV     Data,#06H
+                                           ; SOURCE LINE # 188
+0215 750001      E     MOV     Data+01H,#01H
+                                           ; SOURCE LINE # 189
+0218 750092      E     MOV     Data+02H,#092H
+                                           ; SOURCE LINE # 190
+021B 850000      E     MOV     Data+03H,color
+                                           ; SOURCE LINE # 191
+021E 850000      E     MOV     Data+04H,range
+                                           ; SOURCE LINE # 192
+0221 850000      E     MOV     Data+05H,row
+                                           ; SOURCE LINE # 193
+0224 E4                CLR     A
+0225 F500        E     MOV     Data+06H,A
+                                           ; SOURCE LINE # 194
+0227 7F00        E     MOV     R7,#LOW Data
+0229 020000      E     LJMP    _RTDWrite
+                                           ; SOURCE LINE # 196
+022C         L?0073:
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 14  
+
+022C F500        E     MOV     Data+04H,A
+022E E4                CLR     A
+022F F500        E     MOV     Data+05H,A
+0231 7F00        E     MOV     R7,#LOW Data
+0233 120000      E     LCALL   _RTDWrite
+0236 22                RET     
+             ; FUNCTION _rgb_OSD_Slider (END)
+
+             ; FUNCTION rgb_LED_LIGHT_CONTROL (BEGIN)
+                                           ; SOURCE LINE # 198
+                                           ; SOURCE LINE # 199
+                                           ; SOURCE LINE # 200
+0000 30001C      E     JNB     bStable,?C0051
+0003 300019      E     JNB     bPower_Status,?C0051
+0006 7800        E     MOV     R0,#LOW ucMode_Curr
+0008 E6                MOV     A,@R0
+0009 FF                MOV     R7,A
+000A 6013              JZ      ?C0051
+000C F4                CPL     A
+000D 6010              JZ      ?C0051
+                                           ; SOURCE LINE # 201
+                                           ; SOURCE LINE # 202
+000F D200        E     SETB    ?SetMute?BIT
+0011 120000      E     LCALL   SetMute
+                                           ; SOURCE LINE # 203
+0014 E4                CLR     A
+0015 900000      E     MOV     DPTR,#M512_Port52
+0018 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 204
+0019 900000      E     MOV     DPTR,#M512_Port53
+001C 04                INC     A
+001D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 205
+001E 22                RET     
+001F         ?C0051:
+                                           ; SOURCE LINE # 207
+                                           ; SOURCE LINE # 208
+001F 20000B      E     JB      bPower_Status,?C0053
+                                           ; SOURCE LINE # 209
+                                           ; SOURCE LINE # 210
+0022 900000      E     MOV     DPTR,#M512_Port53
+0025 7401              MOV     A,#01H
+0027 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 211
+0028 900000      E     MOV     DPTR,#M512_Port52
+002B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 212
+002C 22                RET     
+002D         ?C0053:
+                                           ; SOURCE LINE # 214
+                                           ; SOURCE LINE # 215
+002D E4                CLR     A
+002E 900000      E     MOV     DPTR,#M512_Port53
+0031 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 216
+0032 900000      E     MOV     DPTR,#M512_Port52
+0035 04                INC     A
+0036 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 217
+                                           ; SOURCE LINE # 218
+                                           ; SOURCE LINE # 219
+0037         ?C0055:
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 15  
+
+0037 22                RET     
+             ; FUNCTION rgb_LED_LIGHT_CONTROL (END)
+
+             ; FUNCTION rgb_EXIT_KEY (BEGIN)
+                                           ; SOURCE LINE # 222
+                                           ; SOURCE LINE # 223
+                                           ; SOURCE LINE # 224
+0000 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+0002 E6                MOV     A,@R0
+0003 6056              JZ      ?C0063
+                                           ; SOURCE LINE # 225
+                                           ; SOURCE LINE # 226
+0005 7800        E     MOV     R0,#LOW ucOSD_Item_Index0
+0007 E6                MOV     A,@R0
+0008 604D              JZ      ?C0057
+                                           ; SOURCE LINE # 227
+                                           ; SOURCE LINE # 228
+000A 7800        E     MOV     R0,#LOW ucOSD_Item_Index1
+000C E6                MOV     A,@R0
+000D 600D              JZ      ?C0058
+                                           ; SOURCE LINE # 229
+                                           ; SOURCE LINE # 230
+000F 7800        E     MOV     R0,#LOW ucOSD_Item_Index2
+0011 E6                MOV     A,@R0
+0012 6003              JZ      ?C0059
+                                           ; SOURCE LINE # 231
+                                           ; SOURCE LINE # 232
+0014 E4                CLR     A
+0015 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 233
+0016 22                RET     
+0017         ?C0059:
+                                           ; SOURCE LINE # 235
+                                           ; SOURCE LINE # 236
+0017 E4                CLR     A
+0018 7800        E     MOV     R0,#LOW ucOSD_Item_Index1
+001A F6                MOV     @R0,A
+                                           ; SOURCE LINE # 237
+                                           ; SOURCE LINE # 238
+001B 22                RET     
+001C         ?C0058:
+                                           ; SOURCE LINE # 240
+                                           ; SOURCE LINE # 241
+001C E4                CLR     A
+001D 7800        E     MOV     R0,#LOW ucOSD_Item_Index0
+001F F6                MOV     @R0,A
+                                           ; SOURCE LINE # 242
+0020 E6                MOV     A,@R0
+0021 7D21              MOV     R5,#021H
+0023 120000      R     LCALL   L?0074
+0026 2415              ADD     A,#015H
+0028 FD                MOV     R5,A
+0029 E4                CLR     A
+002A 3E                ADDC    A,R6
+002B FC                MOV     R4,A
+002C EF                MOV     A,R7
+002D 2433              ADD     A,#033H
+002F F500        E     MOV     ?_OSD_Window?BYTE+08H,A
+0031 E4                CLR     A
+0032 3E                ADDC    A,R6
+0033 F500        E     MOV     ?_OSD_Window?BYTE+07H,A
+0035 8C00        E     MOV     ?_OSD_Window?BYTE+05H,R4
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 16  
+
+0037 8D00        E     MOV     ?_OSD_Window?BYTE+06H,R5
+0039 E4                CLR     A
+003A F500        E     MOV     ?_OSD_Window?BYTE+09H,A
+003C F500        E     MOV     ?_OSD_Window?BYTE+0AH,A
+003E 75000E      E     MOV     ?_OSD_Window?BYTE+0BH,#0EH
+0041 7500FB      E     MOV     ?_OSD_Window?BYTE+0CH,#0FBH
+0044 F500        E     MOV     ?_OSD_Window?BYTE+0DH,A
+0046 750001      E     MOV     ?_OSD_Window?BYTE+0EH,#01H
+0049 F500        E     MOV     ?_OSD_Window?BYTE+0FH,A
+004B 7B1A              MOV     R3,#01AH
+004D 7A01              MOV     R2,#01H
+004F 7D96              MOV     R5,#096H
+0051 FC                MOV     R4,A
+0052 7F06              MOV     R7,#06H
+0054 020000      E     LJMP    _OSD_Window
+                                           ; SOURCE LINE # 245
+                                           ; SOURCE LINE # 246
+0057         ?C0057:
+                                           ; SOURCE LINE # 248
+                                           ; SOURCE LINE # 249
+0057 E4                CLR     A
+0058 7800        E     MOV     R0,#LOW ucOSD_Page_Index
+005A F6                MOV     @R0,A
+                                           ; SOURCE LINE # 250
+                                           ; SOURCE LINE # 251
+                                           ; SOURCE LINE # 253
+005B         ?C0063:
+005B 22                RET     
+             ; FUNCTION rgb_EXIT_KEY (END)
+
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 17  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+LP_GLOBAL_USER_DATA1 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+RGB_MODE_USER_DATA . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_GLOBAL_USER_DATA2 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA3 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA0. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+LP_GLOABL_USER_DATA4 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+GLOBAL_USER_DATA1. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+GLOBAL_USER_DATA2. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+P3 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B0H  1
+GLOBAL_USER_DATA3. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+GLOBAL_USER_DATA4. . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+LP_VIDEO_MODE_USER_DATA. . . . . . . .  TYPEDEF  -----  PTR      -----  3
+VIDEO_MODE_USER_DATA . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 18  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+rgb_EXIT_KEY . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_OSD_Window. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_rgb_OSD_Slider. . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  row. . . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0000H  1
+  col. . . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0001H  1
+  length . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0002H  1
+  value. . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0003H  1
+  range. . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0004H  1
+  color. . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0005H  1
+  color_slider . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0006H  1
+  usStart_Addr . . . . . . . . . . . .  AUTO     IDATA  U_INT    0000H  2
+  bound. . . . . . . . . . . . . . . .  AUTO     DATA   U_INT    0007H  2
+_OSD_Line. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+SCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0098H  1
+TCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0088H  1
+ucOSD_Item_Index0. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+ucOSD_Item_Index1. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+ucOSD_Item_Index2. . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+bStable. . . . . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+SetMute. . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+rgb_LED_LIGHT_CONTROL. . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+M512_Port52. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+M512_Port53. . . . . . . . . . . . . .  EXTERN   XDATA  U_CHAR   -----  1
+_RTDWrite. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bPower_Status. . . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+ucMode_Curr. . . . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+_RGB_MODE_USER_DATA. . . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  H_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  V_POSITION . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  CLOCK. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  PHASE. . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+_GLOBAL_USER_DATA0 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  CONTRAST . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  BRIGHT . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  RTD_R_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  RTD_G_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  RTD_B_CONTRAST . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  RTD_R_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  RTD_G_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  RTD_B_BRIGHT . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA1 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  8
+  FUNCTION . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  INPUT_SOURCE . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  FILTER . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  OSD_POSH . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0003H  2
+  OSD_POSV . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  OSD_TIMEOUT. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  OSD_INPUT. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+_GLOBAL_USER_DATA2 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  6
+  AD_R_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  AD_G_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  AD_B_GAIN. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  AD_R_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  AD_G_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  AD_B_OFFSET. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+C51 COMPILER V7.06   RGB_ECHO                                                              11/21/2005 13:47:44 PAGE 19  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+_GLOBAL_USER_DATA3 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  5
+  VOLUME . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  CURR_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  PREV_CHANNEL . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  TV_SETTING . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  SPREAD . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+_GLOBAL_USER_DATA4 . . . . . . . . . .  * TAG *  -----  STRUCT   -----  9
+  C1_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  C1_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  C1_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  C2_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  C2_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+  C2_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0005H  1
+  C3_R . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  C3_G . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  C3_B . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+T2CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+ucOSD_Page_Index . . . . . . . . . . .  EXTERN   IDATA  U_CHAR   -----  1
+Data . . . . . . . . . . . . . . . . .  EXTERN   DATA   ARRAY    -----  16
+_VIDEO_MODE_USER_DATA. . . . . . . . .  * TAG *  -----  STRUCT   -----  4
+  VBRIGHT. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  VCONTRAST. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  VSATURATION. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  VHUE . . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+LP_RGB_MODE_USER_DATA. . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+LP_GLOBAL_USER_DATA0 . . . . . . . . .  TYPEDEF  -----  PTR      -----  3
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    793    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       9
+   IDATA SIZE       =   ----       2
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

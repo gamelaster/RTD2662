@@ -1,0 +1,355 @@
+C51 COMPILER V7.06   TIMER                                                                 11/21/2005 13:47:43 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE TIMER
+OBJECT MODULE PLACED IN .\Output\Timer.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Timer.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PRINT
+                    -(.\Output\Timer.lst) PREPRINT(.\Output\Timer.i) OBJECT(.\Output\Timer.obj)
+
+stmt level    source
+
+   1          #define __TIMER__
+   2          
+   3          #include "reg52.h"
+   4          #include "Header\Lcd_main.h"
+   5          #include "Header\Lcd_auto.h"
+   6          
+   7          /////////////////////////////////////////////////////////////
+   8          // Interrupt Service Routine for Timer0 (Fired every 20ms) //
+   9          /////////////////////////////////////////////////////////////
+  10          void IntProc_Timer0(void) interrupt 1
+  11          {
+  12   1      #if (IRPOLLING)
+              
+                  static unsigned char    ucIR_Seq    = 0xff;
+                  static unsigned char    ucTimerCnt  = 0x00;
+              
+                  TL0         = TIME0_COUNTER_LBYTE;  // Reload Timer0 low-byte
+                  TH0         = TIME0_COUNTER_HBYTE;  // Reload Timer0 high-byte
+              
+                  if (ucIR_State)
+                  {
+                      if (bIR_GPIO)
+                      {
+                          ucIR_Seq    = (ucIR_Seq << 1) | 0x01;
+              
+                          if ((0xff == ucIR_Seq) && (ucIR_State & 0xfe))
+                          {
+                              ucIR_State  = 0;    // Command timeout; Back to idle state
+                              
+                              ((unsigned int *)ucIR_Cmd)[0]   = 0;
+                          }
+                      }
+                      else
+                      {
+                          if (1 < ucIR_State)
+                          {
+                              if (ucIR_Seq & 0x01)
+                              {
+                                  ((unsigned int *)ucIR_Cmd)[0]   = (((unsigned int *)ucIR_Cmd)[0] << 1) 
+                                                                  | (0x07 != (ucIR_Seq & 0x07) ? 1 : 0);
+              
+                                  if (23 == ++ucIR_State && CUSTOM_CODE != ((unsigned int *)ucIR_Cmd)[0])
+                                  {
+                                      ucIR_State  = 0;    // Customer code error; Back to idle state
+              
+                                      ((unsigned int *)ucIR_Cmd)[0]   = 0;
+                                  }
+                                  else if (39 == ucIR_State)
+                                  {
+                                      ucIR_State  = 0;    // Command complete; Back to idle state
+              
+                                      ucIR_Cmd[1] = 8;    // Set command timer to 8 (7*20 = 140ms)
+                                  }
+                              }
+C51 COMPILER V7.06   TIMER                                                                 11/21/2005 13:47:43 PAGE 2   
+
+                              else if (0x00 == (ucIR_Seq & 0xfe))
+                              {
+                                  ucIR_State  = 0;    // Command crashed; Back to idle state
+                  
+                                  ((unsigned int *)ucIR_Cmd)[0]   = 0;
+                              }
+                          }
+                          else                        // ucIR_State is 1
+                          {
+                              if (0xff == ucIR_Seq)
+                              {
+                                  ucIR_State  = 0x07; // Start to decode new command and clear old command
+                  
+                                  ((unsigned int *)ucIR_Cmd)[0]   = 0;
+                              }
+                              else
+                              {
+                                  ucIR_State  = 0;    // Fire repeat command and reset to idle
+              
+                                  ucIR_Cmd[1] = ucIR_Cmd[0] ? 8 : 0;
+                              }
+                          }
+                          
+                          ucIR_Seq    = ucIR_Seq << 1;
+                      }
+                  }
+                  else
+                  {
+                      ucIR_Seq    = (ucIR_Seq << 1) | bIR_GPIO;
+              
+                      if (0x07 == ucIR_Seq)   ucIR_State  = 1;    // Leader code detected
+                  }
+              
+                  if (54 <= ++ucTimerCnt)        // 0.375ms*54 = 20.25ms passed
+                  {
+                      ucTimerCnt          = 0;
+              
+                      bNotify_Timer0_Int  = 1;    // Post Timer0's timeout message
+              
+                      if (usOSD_Timer)    usOSD_Timer -= 1;   // For OSD Timeout
+              
+                      // Clear command after 144ms if not repeat code
+                      if (0 == ucIR_State)
+                      {
+                          if (ucIR_Cmd[1] && 0 == --ucIR_Cmd[1])      ucIR_Cmd[0] = 0;
+                      }
+                  }
+              
+              #else
+ 104   1      
+ 105   1      // mega #if(MCU_TYPE == MCU_WINBOND)                                    //anson 050519
+ 106   1          TL0         = TIME0_COUNTER_LBYTE;  // Reload Timer0 low-byte
+ 107   1          TH0         = TIME0_COUNTER_HBYTE;  // Reload Timer0 high-byte
+ 108   1      
+ 109   1          bNotify_Timer0_Int  = 1;    // Post Timer0's timeout message
+ 110   1      
+ 111   1          if (usOSD_Timer)    usOSD_Timer -= 1;   // For OSD Timeout
+ 112   1       /*   mega                      //anson 050519
+ 113   1      #else
+ 114   1               TL0 = TIME1_COUNTER_LBYTE;  // Reload Timer1 low-byte
+ 115   1           TH0 = TIME1_COUNTER_HBYTE;  // Reload Timer1 hifh-byte
+ 116   1               TR0 = 1;                    // Stop Timer1
+C51 COMPILER V7.06   TIMER                                                                 11/21/2005 13:47:43 PAGE 3   
+
+ 117   1           bNotify_Timer1_Int  = 1;    // Post Timer1's timeout message  
+ 118   1      
+ 119   1           ucTimerCounter++;
+ 120   1               if(ucTimerCounter>20)
+ 121   1           {
+ 122   1              ucTimerCounter=0;
+ 123   1              bNotify_Timer0_Int  = 1;    // Post Timer0's timeout message
+ 124   1              if (usOSD_Timer)    usOSD_Timer -= 1;   // For OSD Timeout
+ 125   1           }
+ 126   1      #endif
+ 127   1      */
+ 128   1      #endif
+ 129   1      }
+ 130          
+ 131          ///////////////////////////////////////////////////////////////////////
+ 132          // Interrupt Service Routine for Timer1 (Fired in 1ms after restart) //
+ 133          ///////////////////////////////////////////////////////////////////////
+ 134          //mega #if(MCU_TYPE == MCU_WINBOND) //Use the standard MCU                      //anson 050519
+ 135          void IntProc_Timer1(void) interrupt 3
+ 136          {   
+ 137   1          TR1 = 0;                    // Stop Timer1
+ 138   1          TL1 = TIME1_COUNTER_LBYTE;  // Reload Timer1 low-byte
+ 139   1      
+ 140   1          TH1 = (bAutoInProgress == 1) ? TIME1_COUNTER_HHBYTE : TIME1_COUNTER_HBYTE;  // Reload Timer1 hifh-byte
+ 141   1      
+ 142   1          bNotify_Timer1_Int  = 1;    // Post Timer1's timeout message    
+ 143   1      }
+ 144          
+ 145          /////////////////////////////////////////////////////////////////////////////////
+ 146          // Function Routines
+ 147          /////////////////////////////////////////////////////////////////////////////////
+ 148          void Delay_Xms(unsigned char x)     // For delay 0 ~ 255 ms
+ 149          {
+ 150   1          if (x)
+ 151   1          {
+ 152   2              bNotify_Timer1_Int  = 0;    // Clear timer1's timeout message
+ 153   2      
+ 154   2      //        TL1 = TIME1_COUNTER_LBYTE;  // Reload Timer1 low-byte
+ 155   2      //        TH1 = TIME1_COUNTER_HBYTE;  // Reload Timer1 hifh-byte
+ 156   2      
+ 157   2              TR1 = 1;                    // Start timer1
+ 158   2              
+ 159   2              while (1)
+ 160   2              {
+ 161   3                  if (bNotify_Timer1_Int)
+ 162   3                  {
+ 163   4                      bNotify_Timer1_Int  = 0;    // Clear timer1's timeout message
+ 164   4      
+ 165   4                      if (--x)    TR1 = 1;        // Restart timer1 if not timeout
+ 166   4                      else        return;         // Timeout for X ms.
+ 167   4                  }
+ 168   3              }
+ 169   2          }
+ 170   1      }
+ 171          /*mega                  //anson 050519
+ 172          #else //Use just one timer
+ 173          
+ 174          /////////////////////////////////////////////////////////////////////////////////
+ 175          // Function Routines
+ 176          /////////////////////////////////////////////////////////////////////////////////
+ 177          void Delay_Xms(unsigned char x)     // For delay 0 ~ 255 ms
+ 178          {
+C51 COMPILER V7.06   TIMER                                                                 11/21/2005 13:47:43 PAGE 4   
+
+ 179          //    unsigned char i;    
+ 180              if (x)
+ 181              {
+ 182                  bNotify_Timer1_Int  = 0;    // Clear timer1's timeout message
+ 183                  //TR1 = 1;                    // Start timer1
+ 184                  while (1)
+ 185                  {
+ 186                      if (bNotify_Timer1_Int)
+ 187                      {
+ 188                          bNotify_Timer1_Int  = 0;    // Clear timer1's timeout message
+ 189                          if (--x)    x=x;//TR1 = 1;        // Restart timer1 if not timeout
+ 190                          else        return;         // Timeout for X ms.
+ 191                      }
+ 192                  }
+ 193              }
+ 194          }
+ 195          
+ 196          
+ 197          #endif
+ 198          */
+C51 COMPILER V7.06   TIMER                                                                 11/21/2005 13:47:43 PAGE 5   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION IntProc_Timer0 (BEGIN)
+0000 C0E0              PUSH    ACC
+0002 C0D0              PUSH    PSW
+0004 75D000            MOV     PSW,#00H
+0007 C000              PUSH    AR0
+                                           ; SOURCE LINE # 10
+                                           ; SOURCE LINE # 106
+0009 758AFF            MOV     TL0,#0FFH
+                                           ; SOURCE LINE # 107
+000C 758C5F            MOV     TH0,#05FH
+                                           ; SOURCE LINE # 109
+000F D200        R     SETB    bNotify_Timer0_Int
+                                           ; SOURCE LINE # 111
+0011 7800        E     MOV     R0,#LOW usOSD_Timer+01H
+0013 E6                MOV     A,@R0
+0014 18                DEC     R0
+0015 46                ORL     A,@R0
+0016 6007              JZ      ?C0002
+0018 08                INC     R0
+0019 E6                MOV     A,@R0
+001A 16                DEC     @R0
+001B 18                DEC     R0
+001C 7001              JNZ     ?C0013
+001E 16                DEC     @R0
+001F         ?C0013:
+                                           ; SOURCE LINE # 129
+001F         ?C0002:
+001F D000              POP     AR0
+0021 D0D0              POP     PSW
+0023 D0E0              POP     ACC
+0025 32                RETI    
+             ; FUNCTION IntProc_Timer0 (END)
+
+             ; FUNCTION IntProc_Timer1 (BEGIN)
+0000 C0D0              PUSH    PSW
+0002 75D000            MOV     PSW,#00H
+0005 C007              PUSH    AR7
+                                           ; SOURCE LINE # 135
+                                           ; SOURCE LINE # 137
+0007 C28E              CLR     TR1
+                                           ; SOURCE LINE # 138
+0009 758BFF            MOV     TL1,#0FFH
+                                           ; SOURCE LINE # 140
+000C 300004      E     JNB     bAutoInProgress,?C0003
+000F 7FFB              MOV     R7,#0FBH
+0011 8002              SJMP    ?C0004
+0013         ?C0003:
+0013 7FF7              MOV     R7,#0F7H
+0015         ?C0004:
+0015 8F8D              MOV     TH1,R7
+                                           ; SOURCE LINE # 142
+0017 D200        R     SETB    bNotify_Timer1_Int
+                                           ; SOURCE LINE # 143
+0019 D007              POP     AR7
+001B D0D0              POP     PSW
+001D 32                RETI    
+             ; FUNCTION IntProc_Timer1 (END)
+
+             ; FUNCTION _Delay_Xms (BEGIN)
+C51 COMPILER V7.06   TIMER                                                                 11/21/2005 13:47:43 PAGE 6   
+
+                                           ; SOURCE LINE # 148
+;---- Variable 'x' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 149
+                                           ; SOURCE LINE # 150
+0000 EF                MOV     A,R7
+0001 6011              JZ      ?C0012
+                                           ; SOURCE LINE # 151
+                                           ; SOURCE LINE # 152
+0003 C200        R     CLR     bNotify_Timer1_Int
+                                           ; SOURCE LINE # 157
+0005 D28E              SETB    TR1
+0007         ?C0007:
+                                           ; SOURCE LINE # 159
+                                           ; SOURCE LINE # 160
+                                           ; SOURCE LINE # 161
+0007 3000FD      R     JNB     bNotify_Timer1_Int,?C0007
+                                           ; SOURCE LINE # 162
+                                           ; SOURCE LINE # 163
+000A C200        R     CLR     bNotify_Timer1_Int
+                                           ; SOURCE LINE # 165
+000C 1F                DEC     R7
+000D EF                MOV     A,R7
+000E 6004              JZ      ?C0012
+0010 D28E              SETB    TR1
+0012 80F3              SJMP    ?C0007
+                                           ; SOURCE LINE # 167
+                                           ; SOURCE LINE # 168
+                                           ; SOURCE LINE # 169
+                                           ; SOURCE LINE # 170
+0014         ?C0012:
+0014 22                RET     
+             ; FUNCTION _Delay_Xms (END)
+
+C51 COMPILER V7.06   TIMER                                                                 11/21/2005 13:47:43 PAGE 7   
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+bNotify_Timer0_Int . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+bNotify_Timer1_Int . . . . . . . . . .  PUBLIC   DATA   BIT      0001H  1
+P3 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B0H  1
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+bAutoInProgress. . . . . . . . . . . .  EXTERN   DATA   BIT      -----  1
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+SCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0098H  1
+usOSD_Timer. . . . . . . . . . . . . .  EXTERN   IDATA  U_INT    -----  2
+TCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0088H  1
+ucTimerCounter . . . . . . . . . . . .  PUBLIC   IDATA  U_CHAR   0000H  1
+TH0. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008CH  1
+TH1. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008DH  1
+TL0. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008AH  1
+TL1. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008BH  1
+TR1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008EH  1
+IntProc_Timer0 . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+IntProc_Timer1 . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+T2CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+_Delay_Xms . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  x. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     89    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =      1    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

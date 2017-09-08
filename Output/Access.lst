@@ -1,0 +1,2867 @@
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE ACCESS
+OBJECT MODULE PLACED IN .\Output\Access.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Code\Access.c OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND CODE SYMBOLS PRIN
+                    -T(.\Output\Access.lst) PREPRINT(.\Output\Access.i) OBJECT(.\Output\Access.obj)
+
+stmt level    source
+
+   1          #define __ACCESS__
+   2          
+   3          #include "reg52.h"
+   4          #include "intrins.h"
+   5          
+   6          #include "Header\MAIN_DEF.H"
+   7          #include "Header\ACCESS.h"
+   8          #include "Header\CONFIG.H"
+   9          #include "Header\MTV512.H"
+  10          #include "Header\OSD.H"
+  11          #include "Header\Power_Ctrl.h"
+  12          
+  13          #if(MCU_TYPE == MCU_MTV512)
+              ///////////////////////////////////////////////////////////////////////
+              // SCL Processor                                                                                          
+             -      //
+              ///////////////////////////////////////////////////////////////////////
+              void MCU_WriteI2cScl(bit Status)
+              {
+                     bIIC_SCL = Status;
+              }       
+              ///////////////////////////////////////////////////////////////////////
+              // SDA Processor                                                                                          
+             -     //
+              ///////////////////////////////////////////////////////////////////////
+              void MCU_WriteI2cSda(bit Status)
+              {
+                     bIIC_SDA = Status;
+              }       
+              
+              bit MCU_ReadI2cSda(void)
+              {
+                     return(bIIC_SDA);
+              }               
+              ///////////////////////////////////////////////////////////////////////
+              // RTD Reset Processor                                                                                    
+             -  //
+              ///////////////////////////////////////////////////////////////////////
+              #if(RESET_TYPE == RESET_IN)
+              void MCU_WriteRtdReset(bit Status)
+              {
+                     bRTD_RST = Status;
+              }
+              
+              bit MCU_ReadRtdReset(void)
+              {
+                     return(bRTD_RST);
+              }       
+              #endif
+              
+                      
+              ///////////////////////////////////////////////////////////////////////
+              // RTD SDIO Processor                                                                                     
+             -  //
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 2   
+
+              ///////////////////////////////////////////////////////////////////////
+              /*
+              void MCU_WriteRtdSdio(bit Status)
+              {
+                     bRTD_SDIO_0 = Status;
+              }       
+              
+              bit MCU_ReadRtdSdio(void)
+              {
+                     return(bRTD_SDIO_0);
+              }       
+              */
+              ///////////////////////////////////////////////////////////////////////
+              // RTD Sclk Processor                                                                                     
+             -   //
+              ///////////////////////////////////////////////////////////////////////
+              void MCU_WriteRtdSclk(bit Status)
+              {
+                     bRTD_SCLK = Status;
+              }       
+              ///////////////////////////////////////////////////////////////////////
+              // RTD Scsb Processor                                                                                     
+             -  //
+              ///////////////////////////////////////////////////////////////////////
+              void MCU_WriteRtdScsb(bit Status)
+              {
+                     bRTD_SCSB = Status;
+              }       
+              ///////////////////////////////////////////////////////////////////////
+              // VIDEO POWER Processor                                                                                //
+              ///////////////////////////////////////////////////////////////////////
+              #if (VIDEO_CHIP != VDC_NONE)
+              void MCU_WriteVideoPower(bit Status)
+              {
+                     bVDC_PWR = Status;
+              }       
+              #endif
+              
+              ///////////////////////////////////////////////////////////////////////
+              // PANEL POWER Processor                                                                                 /
+             -/
+              ///////////////////////////////////////////////////////////////////////
+              void MCU_WritePanelPower(bit Status)
+              {
+                     bPANEL_PWR = Status;
+                     bPanel_Status = Status ? 1 : 0;
+              }       
+              /*
+              bit MCU_ReadPanelPower(void)
+              {
+                     return(bPANEL_PWR);
+              }
+              */      
+              ///////////////////////////////////////////////////////////////////////
+              // BACKLIGHT POWER Processor                                                                         //
+              ///////////////////////////////////////////////////////////////////////
+              void MCU_WriteBacklightPower(bit Status)
+              {       
+                     bLIGHT_PWR = (Status);
+              }
+              
+              
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 3   
+
+              ///////////////////////////////////////////////////////////////////////
+              // VGA CONNECT Processor                                                                                //
+              ///////////////////////////////////////////////////////////////////////
+              bit MCU_ReadVgaConnect(void)
+              {
+                     return(bVGA_CONNECT);
+              }
+              
+              #endif
+ 119          
+ 120          void BitDly(void)
+ 121          {
+ 122   1          _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_();
+ 123   1          _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_();
+ 124   1          _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_();
+ 125   1          _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_();
+ 126   1      }
+ 127          
+ 128          void I2CRead(unsigned char addr, unsigned char index, unsigned char count)
+ 129          {
+ 130   1          unsigned char   n;
+ 131   1      
+ 132   1          if (count)
+ 133   1          {
+ 134   2              I2CSendAddr(addr, index, 0);
+ 135   2              
+ 136   2              I2CSendAddr(addr, 0, 1);
+ 137   2      
+ 138   2              count   = count - 1;
+ 139   2      
+ 140   2              for (n = 0; n < count; n++)     Data[n] = I2CGetByte(0);
+ 141   2      
+ 142   2              Data[count] = I2CGetByte(1);
+ 143   2      
+ 144   2              I2CSendStop();
+ 145   2          }
+ 146   1      }
+ 147          
+ 148          void I2CWrite(unsigned char *array)
+ 149          {
+ 150   1          unsigned char   n, len;
+ 151   1      
+ 152   1          if (3 <= array[0])
+ 153   1          {
+ 154   2              len     = array[0];
+ 155   2              I2CSendAddr(array[1], array[2], 0);     
+ 156   2      
+ 157   2              for (n = 3; n < len; n++)   I2CSendByte(array[n]);
+ 158   2      
+ 159   2              I2CSendStop();
+ 160   2          }
+ 161   1      }
+ 162          
+ 163          
+ 164          unsigned char I2CGetByte(unsigned char ack) 
+ 165          {
+ 166   1          unsigned char   r, m;
+ 167   1      
+ 168   1          r = 0;
+ 169   1      #if(MCU_TYPE == MCU_WINBOND)
+ 170   1          for (m = 0; m < 8; m++)         // Each bit at a time, MSB first
+ 171   1          {
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 4   
+
+ 172   2              bIIC_SCL    = 1;
+ 173   2              BitDly();                   // Delay
+ 174   2      
+ 175   2              r   = (r << 1) | bIIC_SDA;
+ 176   2      
+ 177   2              bIIC_SCL    = 0;
+ 178   2              BitDly();                   // Delay
+ 179   2          }  
+ 180   1      
+ 181   1          // Send ACK according to 'ack'
+ 182   1          bIIC_SDA    = (bit)(ack & 0x01);
+ 183   1          BitDly();                       // Delay
+ 184   1          
+ 185   1          bIIC_SCL    = 1; 
+ 186   1          BitDly();                       // Delay
+ 187   1          
+ 188   1          bIIC_SCL    = 0; 
+ 189   1          BitDly();                       // Delay
+ 190   1          
+ 191   1          bIIC_SDA    = 1;
+ 192   1      #else
+                 
+                  for (m = 0; m < 8; m++)         // Each bit at a time, MSB first
+                  {
+                      MCU_WriteI2cScl(_HIGH);
+                      BitDly();                   // Delay
+                      r   = (r << 1) | MCU_ReadI2cSda();
+                      MCU_WriteI2cScl(_LOW);
+                      BitDly();                   // Delay
+                  }  
+                  // Send ACK according to 'ack'
+                  MCU_WriteI2cSda((bit)(ack & 0x01));
+                  BitDly();                       // Delay
+                  MCU_WriteI2cScl(_HIGH);
+                  BitDly();                       // Delay
+                  MCU_WriteI2cScl(_LOW);
+                  BitDly();                       // Delay
+                  MCU_WriteI2cSda(_HIGH);
+              
+              #endif
+ 212   1      
+ 213   1          return (r);
+ 214   1      }
+ 215          
+ 216          void I2CSendByte(unsigned char send)
+ 217          {
+ 218   1          unsigned char   m;
+ 219   1      #if(MCU_TYPE == MCU_WINBOND)    
+ 220   1          for (m = 0; m < 8; m++)
+ 221   1          {
+ 222   2              bIIC_SDA    = (bit)(send & 0x80);   // Send each bit, MSB first
+ 223   2              BitDly();
+ 224   2      
+ 225   2              bIIC_SCL    = 1;
+ 226   2              BitDly();
+ 227   2      
+ 228   2              bIIC_SCL    = 0;
+ 229   2      
+ 230   2              send    = send << 1;
+ 231   2          }
+ 232   1      
+ 233   1          bIIC_SDA    = 1;
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 5   
+
+ 234   1          bIIC_SCL    = 1;
+ 235   1          BitDly();
+ 236   1      
+ 237   1          bIIC_SCL    = 0;
+ 238   1          BitDly();
+ 239   1      #else
+                  for (m = 0; m < 8; m++)
+                  {
+                      MCU_WriteI2cSda((bit)(send & 0x80));   // Send each bit, MSB first
+                      BitDly();
+                      MCU_WriteI2cScl(_HIGH);
+                      BitDly();
+                      MCU_WriteI2cScl(_LOW);;
+                      send    = send << 1;
+                  }
+                  MCU_WriteI2cSda(_HIGH);
+                  MCU_WriteI2cScl(_HIGH);
+                  BitDly();
+                  MCU_WriteI2cScl(_LOW);;
+                  BitDly();
+              
+              #endif
+ 256   1      } 
+ 257          
+ 258          void I2CSendAddr(unsigned char addr, unsigned char index, unsigned char rd)
+ 259          {         
+ 260   1      #if(MCU_TYPE == MCU_WINBOND)         
+ 261   1          bIIC_SCL    = 1;
+ 262   1          bIIC_SDA    = 0;    // Start
+ 263   1          BitDly();
+ 264   1      
+ 265   1          bIIC_SCL    = 0;
+ 266   1          I2CSendByte(addr + rd);             // Send address byte
+ 267   1      
+ 268   1          if (0 == rd)    I2CSendByte(index); // Send index byte  
+ 269   1      #else
+                  MCU_WriteI2cScl(_HIGH);
+                  MCU_WriteI2cSda(_LOW);    // Start
+                  BitDly();
+                  MCU_WriteI2cScl(_LOW);;
+                  I2CSendByte(addr + rd);             // Send address byte
+                  if (0 == rd)    I2CSendByte(index); // Send index byte 
+              #endif
+ 277   1      }
+ 278          
+ 279          void I2CSendStop(void)
+ 280          {
+ 281   1      #if(MCU_TYPE == MCU_WINBOND)
+ 282   1          bIIC_SDA    = 0; 
+ 283   1          BitDly();
+ 284   1      
+ 285   1          bIIC_SCL    = 1;
+ 286   1          BitDly();
+ 287   1      
+ 288   1          bIIC_SDA    = 1;
+ 289   1          BitDly();
+ 290   1      #else
+                  MCU_WriteI2cSda(_LOW); 
+                  BitDly();
+                  MCU_WriteI2cScl(_HIGH);
+                  BitDly();
+                  MCU_WriteI2cSda(_HIGH);
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 6   
+
+                  BitDly();
+              #endif
+ 298   1      }
+ 299          
+ 300          unsigned char RTDGetByte(void) 
+ 301          {
+ 302   1      
+ 303   1      #if(PARALLEL_PORT)
+              
+              #if(1)
+                 bRTD_SCLK = 1;
+                 bRTD_SCLK = 0;
+                 r0        = bRTD_SDIO_0;
+                 r1        = bRTD_SDIO_1;
+                 r2        = bRTD_SDIO_2;
+                 r3        = bRTD_SDIO_3;
+              
+                 bRTD_SCLK = 1;
+                 bRTD_SCLK = 0;
+                 r4        = bRTD_SDIO_0;
+                 r5        = bRTD_SDIO_1;
+                 r6        = bRTD_SDIO_2;
+                 r7        = bRTD_SDIO_3;
+              
+                 bRTD_SCLK   = 1;
+              #else
+              
+                 bRTD_SCLK = 1;
+                 bRTD_SCLK = 0;
+              
+                 Reg = P0 & 0x0f;
+              
+                 bRTD_SCLK = 1;
+                 bRTD_SCLK = 0;
+              
+                 Reg = Reg | ((P0 & 0x0f) << 4);
+              
+                 bRTD_SCLK   = 1;
+              
+              #endif
+              
+              #else //serial port
+ 338   1          bRTD_SCLK   = 1;
+ 339   1          bRTD_SCLK   = 0;
+ 340   1          r0          = bRTD_SDIO_0;
+ 341   1      
+ 342   1          bRTD_SCLK   = 1;
+ 343   1          bRTD_SCLK   = 0;
+ 344   1          r1          = bRTD_SDIO_0;
+ 345   1      
+ 346   1          bRTD_SCLK   = 1;
+ 347   1          bRTD_SCLK   = 0;
+ 348   1          r2          = bRTD_SDIO_0;
+ 349   1      
+ 350   1          bRTD_SCLK   = 1;
+ 351   1          bRTD_SCLK   = 0;
+ 352   1          r3          = bRTD_SDIO_0;
+ 353   1      
+ 354   1          bRTD_SCLK   = 1;
+ 355   1          bRTD_SCLK   = 0;
+ 356   1          r4          = bRTD_SDIO_0;
+ 357   1      
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 7   
+
+ 358   1          bRTD_SCLK   = 1;
+ 359   1          bRTD_SCLK   = 0;
+ 360   1          r5          = bRTD_SDIO_0;
+ 361   1      
+ 362   1          bRTD_SCLK   = 1;
+ 363   1          bRTD_SCLK   = 0;
+ 364   1          r6          = bRTD_SDIO_0;
+ 365   1      
+ 366   1          bRTD_SCLK   = 1;
+ 367   1          bRTD_SCLK   = 0;
+ 368   1          r7          = bRTD_SDIO_0;
+ 369   1      
+ 370   1          bRTD_SCLK   = 1;
+ 371   1      
+ 372   1      #endif
+ 373   1      
+ 374   1      
+ 375   1          return Reg;
+ 376   1      }
+ 377          
+ 378          void RTDSendByte(unsigned char send)
+ 379          {
+ 380   1      
+ 381   1      
+ 382   1      #if(PARALLEL_PORT)
+              
+              #if(1)
+                  bRTD_SDIO_0 = (bit)(send & 0x01);
+                      bRTD_SDIO_1 = (bit)(send & 0x02);
+                      bRTD_SDIO_2 = (bit)(send & 0x04);
+                      bRTD_SDIO_3 = (bit)(send & 0x08);
+                      bRTD_SCLK   = 1;
+                  bRTD_SCLK   = 0;
+              
+                      bRTD_SDIO_0 = (bit)(send & 0x10);
+                      bRTD_SDIO_1 = (bit)(send & 0x20);
+                      bRTD_SDIO_2 = (bit)(send & 0x40);
+                      bRTD_SDIO_3 = (bit)(send & 0x80);
+                      bRTD_SCLK   = 1;
+                  bRTD_SCLK   = 0;
+              
+                      bRTD_SDIO_0 = 1;
+                      bRTD_SDIO_1 = 1;
+                      bRTD_SDIO_2 = 1;
+                      bRTD_SDIO_3 = 1;
+                      bRTD_SCLK   = 1;
+              #else
+                  unsigned char ucTemp;
+              
+                      ucTemp = P0 & 0xf0;
+              
+                  P0 = ucTemp | (send & 0x0f);
+                  bRTD_SCLK   = 1;
+                  bRTD_SCLK   = 0;
+              
+                  P0 = ucTemp | (send >> 4);
+              
+                      bRTD_SCLK   = 1;
+                  bRTD_SCLK   = 0;
+              
+                  P0 = ucTemp | 0x0f;
+                      bRTD_SCLK   = 1;
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 8   
+
+              
+              #endif
+              
+              #else //serial port
+ 424   1          bRTD_SDIO_0 = (bit)(send & 0x01);
+ 425   1          bRTD_SCLK   = 1;
+ 426   1          bRTD_SCLK   = 0;
+ 427   1      
+ 428   1          bRTD_SDIO_0 = (bit)(send & 0x02);
+ 429   1          bRTD_SCLK   = 1;
+ 430   1          bRTD_SCLK   = 0;
+ 431   1      
+ 432   1          bRTD_SDIO_0 = (bit)(send & 0x04);
+ 433   1          bRTD_SCLK   = 1;
+ 434   1          bRTD_SCLK   = 0;
+ 435   1      
+ 436   1          bRTD_SDIO_0 = (bit)(send & 0x08);
+ 437   1          bRTD_SCLK   = 1;
+ 438   1          bRTD_SCLK   = 0;
+ 439   1      
+ 440   1          bRTD_SDIO_0 = (bit)(send & 0x10);
+ 441   1          bRTD_SCLK   = 1;
+ 442   1          bRTD_SCLK   = 0;
+ 443   1      
+ 444   1          bRTD_SDIO_0 = (bit)(send & 0x20);
+ 445   1          bRTD_SCLK   = 1;
+ 446   1          bRTD_SCLK   = 0;
+ 447   1      
+ 448   1          bRTD_SDIO_0 = (bit)(send & 0x40);
+ 449   1          bRTD_SCLK   = 1;
+ 450   1          bRTD_SCLK   = 0;
+ 451   1      
+ 452   1          bRTD_SDIO_0 = (bit)(send & 0x80);
+ 453   1          bRTD_SCLK   = 1;
+ 454   1          bRTD_SCLK   = 0;
+ 455   1      
+ 456   1          bRTD_SDIO_0 = 1;
+ 457   1          bRTD_SCLK   = 1;
+ 458   1      
+ 459   1      #endif
+ 460   1      
+ 461   1      
+ 462   1      }
+ 463          
+ 464          void RTDSendAddr(unsigned char addr, unsigned char rd, unsigned char inc)   // rd   : 0 - Write, 1 - Read
+ 465          {
+ 466   1      
+ 467   1      #if(PARALLEL_PORT)
+              
+                  RTDSendByte(addr);
+              
+                      bRTD_SDIO_0 = (bit)(rd & 0x01);
+                      bRTD_SDIO_1 = (bit)(inc & 0x01);
+                      
+                      bRTD_SCLK = 0;
+              
+                      bRTD_SDIO_0 = 1;
+                      bRTD_SDIO_1 = 1;
+                      bRTD_SCLK = 1;
+              #else // serial port
+ 480   1          RTDSendByte(addr);
+ 481   1      
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 9   
+
+ 482   1          bRTD_SDIO_0 = 1;
+ 483   1          bRTD_SCLK   = 1;        
+ 484   1          bRTD_SDIO_0 = (bit)(rd & 0x01); 
+ 485   1          bRTD_SCLK   = 1;
+ 486   1          bRTD_SCLK   = 0;
+ 487   1          bRTD_SDIO_0 = (bit)(inc & 0x01); 
+ 488   1          bRTD_SCLK   = 1;
+ 489   1          bRTD_SCLK   = 0;
+ 490   1          bRTD_SDIO_0 = 1;
+ 491   1      #endif
+ 492   1      
+ 493   1      
+ 494   1      }
+ 495          
+ 496          void RTDSendStop(void)
+ 497          {
+ 498   1      
+ 499   1              bRTD_SCLK   = 0;
+ 500   1              bRTD_SCLK   = 1; 
+ 501   1              bRTD_SCSB   = 1;
+ 502   1      
+ 503   1      }
+ 504          
+ 505          void RTDRead(unsigned char index, unsigned char count, unsigned char inc)
+ 506          {
+ 507   1          if (count)
+ 508   1          {
+ 509   2              bRTD_SCSB   = 0;
+ 510   2      
+ 511   2              RTDSendAddr(index, 1, inc);
+ 512   2      
+ 513   2              index   = 0;
+ 514   2              do
+ 515   2              {
+ 516   3                  Data[index++]   = RTDGetByte();
+ 517   3              }
+ 518   2              while (--count);
+ 519   2      
+ 520   2                      RTDSendStop();
+ 521   2      
+ 522   2          }
+ 523   1      }
+ 524          
+ 525          void RTDWrite(unsigned char data *array)
+ 526          {
+ 527   1      
+ 528   1          unsigned char   len, m;
+ 529   1      
+ 530   1          do
+ 531   1          {
+ 532   2              if (0 == (array[0] & 0xfc))     return;
+ 533   2      
+ 534   2              len     = array[0] - 3;
+ 535   2              array   = array + 1;
+ 536   2              bRTD_SCSB   = 0;
+ 537   2      
+ 538   2      
+ 539   2              if (BURST == array[0])
+ 540   2              {
+ 541   3                  RTDSendAddr(array[1], 0, N_INC);
+ 542   3      
+ 543   3                  array   = array + 2;
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 10  
+
+ 544   3                  m       = array[0];
+ 545   3      
+ 546   3                  do
+ 547   3                  {
+ 548   4                      RTDSendByte(m);
+ 549   4                  }
+ 550   3                  while (--len);
+ 551   3      
+ 552   3                  array   = array + 1;
+ 553   3              }
+ 554   2              else
+ 555   2              {
+ 556   3                  RTDSendAddr(array[1], 0, array[0]);
+ 557   3      
+ 558   3                  array   = array + 2;
+ 559   3                  do
+ 560   3                  {
+ 561   4                      RTDSendByte(*array++);
+ 562   4                  }
+ 563   3                  while (--len);
+ 564   3              }
+ 565   2                      RTDSendStop();
+ 566   2          }
+ 567   1          while (1);
+ 568   1      }
+ 569          
+ 570          void RTDCodeW(unsigned char code *array)
+ 571          {
+ 572   1          unsigned char   len, m;
+ 573   1      
+ 574   1          do
+ 575   1          {
+ 576   2              if (0 == (array[0] & 0xfc))     return;
+ 577   2      
+ 578   2              len     = array[0] - 3;
+ 579   2              array   = array + 1;
+ 580   2              bRTD_SCSB   = 0;
+ 581   2      
+ 582   2              if (BURST == array[0])
+ 583   2              {
+ 584   3                  RTDSendAddr(array[1], 0, N_INC);
+ 585   3      
+ 586   3                  array   = array + 2;
+ 587   3                  m       = array[0];
+ 588   3                  
+ 589   3                  do
+ 590   3                  {
+ 591   4                      RTDSendByte(m);
+ 592   4                  }
+ 593   3                  while (--len);
+ 594   3      
+ 595   3                  array   = array + 1;
+ 596   3              }
+ 597   2              else
+ 598   2              {
+ 599   3                  RTDSendAddr(array[1], 0, array[0]);
+ 600   3      
+ 601   3                  array   = array + 2;
+ 602   3                  do
+ 603   3                  {
+ 604   4                      RTDSendByte(*array++);
+ 605   4                  }
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 11  
+
+ 606   3                  while (--len);
+ 607   3              }
+ 608   2                      RTDSendStop();
+ 609   2      
+ 610   2          }
+ 611   1          while (1);
+ 612   1      }
+ 613          
+ 614          void RTDOSDW(unsigned char code *array)
+ 615          {
+ 616   1          unsigned char   len;
+ 617   1          do
+ 618   1          {
+ 619   2              if (array[0] == _end_)     return;
+ 620   2                          
+ 621   2                      bRTD_SCSB   = 0;
+ 622   2              RTDSendAddr(OSD_ROW_90,WRITE,Y_INC);
+ 623   2              RTDSendByte(*array++);
+ 624   2              RTDSendByte(*array++);
+ 625   2      
+ 626   2                      RTDSendStop();
+ 627   2      
+ 628   2                      bRTD_SCSB   = 0;
+ 629   2              RTDSendAddr(OSD_DATA_92,WRITE,N_INC);
+ 630   2              do
+ 631   2                      {
+ 632   3                 if(array[0] == _ext_)
+ 633   3                 {
+ 634   4                     if(array[2] == _bb_)
+ 635   4                     {
+ 636   5                        do
+ 637   5                        {
+ 638   6                           len = array[3] - 1;
+ 639   6                           RTDSendByte(_ext_ + array[1]);
+ 640   6                         }while(len--);
+ 641   5      
+ 642   5                         array += 4;
+ 643   5                     }
+ 644   4                     else
+ 645   4                     {
+ 646   5                         RTDSendByte(_ext_ + array[1]);
+ 647   5                         array += 2;
+ 648   5                     }
+ 649   4                 }
+ 650   3                 else if(array[1] == _bb_)
+ 651   3                         {
+ 652   4                             len = array[2] - 1;
+ 653   4                                 do
+ 654   4                                 {
+ 655   5                                    RTDSendByte(*array);
+ 656   5                                 }while(len--);
+ 657   4                             
+ 658   4                                 array += 3;
+ 659   4                         }
+ 660   3                         else
+ 661   3                             RTDSendByte(*array++);
+ 662   3      
+ 663   3      
+ 664   3                      }while(array[0] != _nn_);
+ 665   2                      array +=1 ;
+ 666   2                      RTDSendStop();
+ 667   2      
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 12  
+
+ 668   2          }
+ 669   1          while (1);
+ 670   1      
+ 671   1      }
+ 672          
+ 673          
+ 674          void RTDSetByte(unsigned char addr, unsigned char val)
+ 675          {
+ 676   1          // Set Write Address
+ 677   1          bRTD_SCSB   = 0;   
+ 678   1      
+ 679   1          RTDSendAddr(addr, 0, 1);
+ 680   1      
+ 681   1          // Write one Byte
+ 682   1          RTDSendByte(val);
+ 683   1      
+ 684   1              RTDSendStop();
+ 685   1      
+ 686   1      }
+ 687          
+ 688          void RTDSetBit(unsigned char addr, unsigned char and, unsigned char or)
+ 689          {
+ 690   1          // Set Read Address
+ 691   1          bRTD_SCSB   = 0;
+ 692   1          RTDSendAddr(addr, 1, 1);
+ 693   1      
+ 694   1          // Read 1 Byte
+ 695   1          or      = (RTDGetByte() & and) | or;
+ 696   1      
+ 697   1              RTDSendStop();
+ 698   1      
+ 699   1          // Set Write Address
+ 700   1          bRTD_SCSB   = 0;   
+ 701   1          RTDSendAddr(addr, 0, 1);
+ 702   1      
+ 703   1          // Write one Byte
+ 704   1          RTDSendByte(or);
+ 705   1      
+ 706   1              RTDSendStop();
+ 707   1      
+ 708   1      
+ 709   1      }
+ 710          
+ 711          #if(VLC_COMPRESS)
+ 712          void Load_VLC_Font(unsigned char code *array, unsigned int start, unsigned int length)
+ 713          {
+ 714   1              unsigned char n,m;
+ 715   1              unsigned char ucTemp[3];
+ 716   1              unsigned char idata ucTemp_VLD[3];
+ 717   1              
+ 718   1      #if(PARALLEL_PORT)
+              //      unsigned char ucTemp1;
+              #endif
+ 721   1      
+ 722   1              start += FONT_BASE_ADDRESS;
+ 723   1      
+ 724   1              bRTD_SCSB   = 0;   
+ 725   1              RTDSendAddr(OSD_ROW_90, WRITE, Y_INC);
+ 726   1              ucTemp[0] = (unsigned char)((start >> 8) & 0x000f) | 0xd0;
+ 727   1              RTDSendByte(ucTemp[0]);
+ 728   1              ucTemp[0] = (unsigned char)(start & 0x00ff);
+ 729   1              RTDSendByte(ucTemp[0]);
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 13  
+
+ 730   1      
+ 731   1              RTDSendStop();
+ 732   1      
+ 733   1              bRTD_SCSB   = 0;   
+ 734   1              RTDSendAddr(OSD_DATA_92, WRITE, N_INC);
+ 735   1      
+ 736   1              ucCnt = 0;
+ 737   1              uiCount = 0;
+ 738   1              bBit = 0;
+ 739   1              ucByte_Temp = 0;
+ 740   1      
+ 741   1              do
+ 742   1              {
+ 743   2                      for(m=0; m<9; m++)
+ 744   2                      {
+ 745   3      
+ 746   3                              ucTemp_VLD[0] = Get_VLD(array) << 4;
+ 747   3                              ucTemp_VLD[0] |= Get_VLD(array);
+ 748   3                              ucTemp_VLD[1] = Get_VLD(array) << 4;
+ 749   3                              ucTemp_VLD[1] |= Get_VLD(array);
+ 750   3                              ucTemp_VLD[2] = Get_VLD(array) << 4;
+ 751   3                              ucTemp_VLD[2] |= Get_VLD(array);
+ 752   3                              
+ 753   3                              //Rearrange the byte order
+ 754   3                              ucTemp[0] = (ucTemp_VLD[1] << 4) | (ucTemp_VLD[2] & 0x0f);
+ 755   3                              ucTemp[1] = (ucTemp_VLD[2] & 0xf0) | (ucTemp_VLD[0] & 0x0f);
+ 756   3                              ucTemp[2] = (ucTemp_VLD[0] & 0xf0) | (ucTemp_VLD[1] >> 4);
+ 757   3      
+ 758   3                              for(n=0;n<3;n++)
+ 759   3                              {
+ 760   4      #if(PARALLEL_PORT)
+                                              
+              #if(KINGMICE)
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x01);
+                                              bRTD_SDIO_1 = (bit)(ucTemp[n] & 0x02);
+                                              bRTD_SDIO_2 = (bit)(ucTemp[n] & 0x04);
+                                              bRTD_SDIO_3 = (bit)(ucTemp[n] & 0x08);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x10);
+                                              bRTD_SDIO_1 = (bit)(ucTemp[n] & 0x20);
+                                              bRTD_SDIO_2 = (bit)(ucTemp[n] & 0x40);
+                                              bRTD_SDIO_3 = (bit)(ucTemp[n] & 0x80);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = 1;
+                                              bRTD_SDIO_1 = 1;
+                                              bRTD_SDIO_2 = 1;
+                                              bRTD_SDIO_3 = 1;
+                                              bRTD_SCLK   = 1;
+              #else
+                                              ucTemp1 = P0 & 0xf0;
+              
+                                              P0 = ucTemp1 | (ucTemp[n] & 0x0f);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              P0 = ucTemp1 | (ucTemp[n] >> 4);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              P0 = ucTemp1 | 0x0f;
+                                              bRTD_SCLK   = 1;
+              #endif
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 14  
+
+              
+              #else
+ 794   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x01);
+ 795   4                                      bRTD_SCLK   = 1;
+ 796   4                                      bRTD_SCLK   = 0;
+ 797   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x02);
+ 798   4                                      bRTD_SCLK   = 1;
+ 799   4                                      bRTD_SCLK   = 0;
+ 800   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x04);
+ 801   4                                      bRTD_SCLK   = 1;
+ 802   4                                      bRTD_SCLK   = 0;
+ 803   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x08);
+ 804   4                                      bRTD_SCLK   = 1;
+ 805   4                                      bRTD_SCLK   = 0;
+ 806   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x10);
+ 807   4                                      bRTD_SCLK   = 1;
+ 808   4                                      bRTD_SCLK   = 0;
+ 809   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x20);
+ 810   4                                      bRTD_SCLK   = 1;
+ 811   4                                      bRTD_SCLK   = 0;
+ 812   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x40);
+ 813   4                                      bRTD_SCLK   = 1;
+ 814   4                                      bRTD_SCLK   = 0;
+ 815   4                                      bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x80);
+ 816   4                                      bRTD_SCLK   = 1;
+ 817   4                                      bRTD_SCLK   = 0;
+ 818   4                                      bRTD_SDIO_0 = 1;
+ 819   4                                      bRTD_SCLK   = 1;
+ 820   4      #endif
+ 821   4                              }
+ 822   3                      }
+ 823   2              }
+ 824   1              while (--length);
+ 825   1      
+ 826   1              RTDSendStop();
+ 827   1              
+ 828   1      }
+ 829          
+ 830          unsigned char Get_VLD(unsigned char code *array)
+ 831          {
+ 832   1              unsigned char data ucZero_Cnt = 0;
+ 833   1              bit bSec_Part = 0;
+ 834   1              
+ 835   1              while(1)
+ 836   1              {
+ 837   2                      if( ucCnt == 0 )
+ 838   2                      {
+ 839   3                              ucByte_Temp = *(array + uiCount);
+ 840   3                              ucCnt = 0x80;
+ 841   3                              uiCount++;
+ 842   3                      }
+ 843   2      
+ 844   2                      while( ucCnt > 0 )
+ 845   2                      {
+ 846   3                              bBit = (bit)(ucByte_Temp & ucCnt);
+ 847   3                              ucCnt >>= 1;
+ 848   3      
+ 849   3                              if( (bBit) && (bSec_Part == 0) )
+ 850   3                              {
+ 851   4                                      bSec_Part = 1;
+ 852   4                              }
+ 853   3                              else    
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 15  
+
+ 854   3                              {
+ 855   4                                      ucZero_Cnt++;
+ 856   4                              }
+ 857   3      
+ 858   3                              if( bSec_Part == 1 )
+ 859   3                              {
+ 860   4                                      switch(ucZero_Cnt)
+ 861   4                                      {
+ 862   5                                              case 0:
+ 863   5                                                      bSec_Part = 0;
+ 864   5                                                      ucZero_Cnt = 0;
+ 865   5                                                      return 0;
+ 866   5              
+ 867   5                                              case 1:
+ 868   5                                                      Getbit(array);
+ 869   5                                                      bSec_Part = 0;
+ 870   5                                                      ucZero_Cnt = 0;
+ 871   5      
+ 872   5                                                      if(!bBit)
+ 873   5                                                      {
+ 874   6                                                              return 1;
+ 875   6                                                      }
+ 876   5                                                      else
+ 877   5                                                      {
+ 878   6                                                              return 15;
+ 879   6                                                      }
+ 880   5      
+ 881   5                                              case 2:
+ 882   5                                                      Getbit(array);
+ 883   5                                                      bSec_Part = 0;
+ 884   5                                                      ucZero_Cnt = 0;
+ 885   5                                                      
+ 886   5                                                      if(!bBit)
+ 887   5                                                      {
+ 888   6                                                              return 2;
+ 889   6                                                      }
+ 890   5                                                      else
+ 891   5                                                      {
+ 892   6                                                              return 8;
+ 893   6                                                      }
+ 894   5      
+ 895   5                                              case 3:
+ 896   5                                                      Getbit(array);
+ 897   5                                                      bSec_Part = 0;
+ 898   5                                                      ucZero_Cnt = 0;
+ 899   5      
+ 900   5                                                      if(!bBit)
+ 901   5                                                      {
+ 902   6                                                              return 12;
+ 903   6                                                      }
+ 904   5                                                      else
+ 905   5                                                      {
+ 906   6                                                              return 7;
+ 907   6                                                      }
+ 908   5      
+ 909   5                                              case 4:
+ 910   5                                                      Getbit(array);
+ 911   5                                                      bSec_Part = 0;
+ 912   5                                                      ucZero_Cnt = 0;
+ 913   5      
+ 914   5                                                      if(bBit)
+ 915   5                                                      {
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 16  
+
+ 916   6                                                              Getbit(array);
+ 917   6      
+ 918   6                                                              if(!bBit)
+ 919   6                                                              {
+ 920   7                                                                      return 4;
+ 921   7                                                              }
+ 922   6                                                              else
+ 923   6                                                              {
+ 924   7                                                                      return 9;
+ 925   7                                                              }
+ 926   6                                                      }
+ 927   5                                                      else
+ 928   5                                                      {
+ 929   6                                                              Getbit(array);
+ 930   6              
+ 931   6                                                              if(!bBit)
+ 932   6                                                              {
+ 933   7                                                                      Getbit(array);
+ 934   7      
+ 935   7                                                                      if(!bBit)
+ 936   7                                                                      {
+ 937   8                                                                              return 3;
+ 938   8                                                                      }
+ 939   7                                                                      else
+ 940   7                                                                      {
+ 941   8                                                                              return 11;
+ 942   8                                                                      }
+ 943   7      
+ 944   7                                                              }
+ 945   6                                                              else
+ 946   6                                                              {
+ 947   7                                                                      Getbit(array);
+ 948   7                                                                      
+ 949   7                                                                      if(!bBit)
+ 950   7                                                                      {
+ 951   8                                                                              return 10;
+ 952   8                                                                      }
+ 953   7                                                                      else
+ 954   7                                                                      {
+ 955   8                                                                              return 5;
+ 956   8                                                                      }
+ 957   7      
+ 958   7                                                              }
+ 959   6                                                      }
+ 960   5      
+ 961   5                                              case 5:
+ 962   5                                                      Getbit(array);
+ 963   5                                                      bSec_Part = 0;
+ 964   5                                                      ucZero_Cnt = 0;
+ 965   5      
+ 966   5                                                      if(bBit)
+ 967   5                                                      {
+ 968   6                                                              Getbit(array);
+ 969   6      
+ 970   6                                                              if(!bBit)
+ 971   6                                                              {
+ 972   7                                                                      return 14;
+ 973   7                                                              }
+ 974   6                                                              else
+ 975   6                                                              {
+ 976   7                                                                      return 13;
+ 977   7                                                              }
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 17  
+
+ 978   6                                                      }
+ 979   5                                                      else
+ 980   5                                                      {
+ 981   6                                                              Getbit(array);
+ 982   6                                                              if(bBit)
+ 983   6                                                              {
+ 984   7                                                                      return 6;
+ 985   7                                                              }
+ 986   6                                                      }
+ 987   5                                      }
+ 988   4                              }
+ 989   3                      }
+ 990   2              }
+ 991   1      }
+ 992          
+ 993          void Getbit(unsigned char code *array)
+ 994          {
+ 995   1              if( ucCnt == 0 )
+ 996   1              {
+ 997   2                      ucByte_Temp = *(array + uiCount);
+ 998   2                      ucCnt = 0x80;
+ 999   2                      uiCount++;
+1000   2              }
+1001   1                                                              
+1002   1              bBit = (bit)(ucByte_Temp & ucCnt);
+1003   1              ucCnt >>= 1;
+1004   1      
+1005   1      }
+1006          #else
+              //length represent the number of character
+              // character number of 1 bit font  = 1
+              // character number of 2 bit font  = 2
+              // character number of 4 bit font  = 4
+              // length = (1 bit font amount) x 1 + (2 bit font amount) x 2 + (4 bit font amount) x 4
+              void Load_Font(unsigned char code *array, unsigned int start, unsigned int length)
+              {
+                  unsigned char   n,m;
+                  unsigned char   ucTemp[3];
+              #if(PARALLEL_PORT)
+              //      unsigned char ucTemp1;
+              #endif
+              
+                  start = start * 9;
+                  start += FONT_BASE_ADDRESS;
+              
+                      bRTD_SCSB   = 0;   
+                      RTDSendAddr(OSD_ROW_90, WRITE, Y_INC);
+                      ucTemp[0] = (unsigned char)((start >> 8) & 0x000f) | 0xd0;
+                      RTDSendByte(ucTemp[0]);
+                      ucTemp[0] = (unsigned char)(start & 0x00ff);
+                      RTDSendByte(ucTemp[0]);
+              
+                      RTDSendStop();
+              
+                      bRTD_SCSB   = 0;   
+                      RTDSendAddr(OSD_DATA_92, WRITE, N_INC);
+              
+                  do
+                  {
+                      for(m=0; m<9; m++)
+                      {
+                                      //Rearrange the byte order
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 18  
+
+              
+                          ucTemp[0] = (*(array + 1) << 4) | (*(array + 2) & 0x0f);
+                                      ucTemp[1] = (*(array + 2) & 0xf0) | (*array & 0x0f);
+                                      ucTemp[2] = (*array & 0xf0) | (*(array + 1) >> 4);
+              
+                                      for(n=0;n<3;n++)
+                                      {
+              #if(PARALLEL_PORT)
+                                              
+              #if(1)
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x01);
+                                              bRTD_SDIO_1 = (bit)(ucTemp[n] & 0x02);
+                                              bRTD_SDIO_2 = (bit)(ucTemp[n] & 0x04);
+                                              bRTD_SDIO_3 = (bit)(ucTemp[n] & 0x08);
+                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x10);
+                                              bRTD_SDIO_1 = (bit)(ucTemp[n] & 0x20);
+                                              bRTD_SDIO_2 = (bit)(ucTemp[n] & 0x40);
+                                              bRTD_SDIO_3 = (bit)(ucTemp[n] & 0x80);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = 1;
+                                              bRTD_SDIO_1 = 1;
+                                              bRTD_SDIO_2 = 1;
+                                              bRTD_SDIO_3 = 1;
+                                              bRTD_SCLK   = 1;
+              #else
+                                              ucTemp1 = P0 & 0xf0;
+              
+                                              P0 = ucTemp1 | (ucTemp[n] & 0x0f);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              P0 = ucTemp1 | (ucTemp[n] >> 4);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              P0 = ucTemp1 | 0x0f;
+                                              bRTD_SCLK   = 1;
+              #endif
+              
+              #else
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x01);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x02);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x04);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x08);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x10);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x20);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x40);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 19  
+
+                                              bRTD_SDIO_0 = (bit)(ucTemp[n] & 0x80);
+                                              bRTD_SCLK   = 1;
+                                              bRTD_SCLK   = 0;
+                                              bRTD_SDIO_0 = 1;
+                                              bRTD_SCLK   = 1;
+              #endif
+                          }
+                          array += 3;
+                      }
+                  }
+                  while (--length);
+              
+                      RTDSendStop();
+              }
+              #endif
+1117          
+1118          
+1119          #if(HDCP_ENABLE)
+              void KEYCodeW(unsigned char code *array)
+              {
+                  unsigned int m;  
+              
+                 RTDSetBit(DVI_CTRL1_AF, 0x7f,0x00);  //Reset the HDCP key download index
+                 RTDSetBit(DVI_CTRL1_AF, 0x7f,0x80);
+                      
+                  for(m = 0; m < 320; m++)   //Key 0 ~ Key39   
+                  {
+                              RTDSetByte(0xb1,array[m]);
+                  }   
+              
+                  RTDSetBit(DVI_CTRL1_AF, 0x7f,0x00);  //Disable the Key Access Download port
+                  RTDSetBit(TMDS_INPUT_ENA_A1, 0x7f, 0x00);   // Turn on HDCP DDC channel  
+              }
+              #endif
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 20  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION Com008D (BEGIN)
+0000         L?0142:
+0000 A2E1              MOV     C,ACC.1
+0002 9290              MOV     bRTD_SDIO_0,C
+0004 D294              SETB    bRTD_SCLK
+0006 C294              CLR     bRTD_SCLK
+0008 A2E2              MOV     C,ACC.2
+000A 9290              MOV     bRTD_SDIO_0,C
+000C D294              SETB    bRTD_SCLK
+000E C294              CLR     bRTD_SCLK
+0010 A2E3              MOV     C,ACC.3
+0012 9290              MOV     bRTD_SDIO_0,C
+0014 D294              SETB    bRTD_SCLK
+0016 C294              CLR     bRTD_SCLK
+0018 A2E4              MOV     C,ACC.4
+001A 9290              MOV     bRTD_SDIO_0,C
+001C D294              SETB    bRTD_SCLK
+001E C294              CLR     bRTD_SCLK
+0020 A2E5              MOV     C,ACC.5
+0022 9290              MOV     bRTD_SDIO_0,C
+0024 D294              SETB    bRTD_SCLK
+0026 C294              CLR     bRTD_SCLK
+0028 A2E6              MOV     C,ACC.6
+002A 9290              MOV     bRTD_SDIO_0,C
+002C D294              SETB    bRTD_SCLK
+002E C294              CLR     bRTD_SCLK
+0030 33                RLC     A
+0031         L?0143:
+0031 9290              MOV     bRTD_SDIO_0,C
+0033 D294              SETB    bRTD_SCLK
+0035 C294              CLR     bRTD_SCLK
+0037 22                RET     
+0038         L?0150:
+0038         L?0151:
+0038 D294              SETB    bRTD_SCLK
+003A C294              CLR     bRTD_SCLK
+003C A290              MOV     C,bRTD_SDIO_0
+003E 22                RET     
+003F         L?0153:
+003F         L?0154:
+003F 850082      R     MOV     DPL,array+01H
+0042 850083      R     MOV     DPH,array
+0045 22                RET     
+0046         L?0157:
+0046 93                MOVC    A,@A+DPTR
+0047 FF                MOV     R7,A
+0048 E4                CLR     A
+0049 FD                MOV     R5,A
+004A 120000      R     LCALL   _RTDSendAddr
+004D 7402              MOV     A,#02H
+004F 2500        R     ADD     A,array+01H
+0051 F500        R     MOV     array+01H,A
+0053 E4                CLR     A
+0054 3500        R     ADDC    A,array
+0056 F500        R     MOV     array,A
+0058 22                RET     
+0059         L?0158:
+0059 9297              MOV     bIIC_SDA,C
+005B 120000      R     LCALL   BitDly
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 21  
+
+005E         L?0159:
+005E D296              SETB    bIIC_SCL
+0060 120000      R     LCALL   BitDly
+0063 C296              CLR     bIIC_SCL
+0065 22                RET     
+0066         L?0160:
+0066 3500        R     ADDC    A,uiCount
+0068 F583              MOV     DPH,A
+006A E4                CLR     A
+006B 93                MOVC    A,@A+DPTR
+006C F500        R     MOV     ucByte_Temp,A
+006E 750080      R     MOV     ucCnt,#080H
+0071 0500        R     INC     uiCount+01H
+0073 E500        R     MOV     A,uiCount+01H
+0075 22                RET     
+0076         L?0161:
+0076 E500        R     MOV     A,ucByte_Temp
+0078 5500        R     ANL     A,ucCnt
+007A 24FF              ADD     A,#0FFH
+007C 9200        R     MOV     bBit,C
+007E E500        R     MOV     A,ucCnt
+0080 C3                CLR     C
+0081 13                RRC     A
+0082 F500        R     MOV     ucCnt,A
+0084 22                RET     
+0085         L?0162:
+0085 120000      R     LCALL   RTDSendStop
+0088 C295              CLR     bRTD_SCSB
+008A 0B                INC     R3
+008B 7F92              MOV     R7,#092H
+008D 020000      R     LJMP    _RTDSendAddr
+0090         L?0164:
+0090 C295              CLR     bRTD_SCSB
+0092 E4                CLR     A
+0093 FB                MOV     R3,A
+0094 FD                MOV     R5,A
+0095 7F90              MOV     R7,#090H
+0097 020000      R     LJMP    _RTDSendAddr
+009A         L?0165:
+009A         L?0166:
+009A 0500        R     INC     array+01H
+009C E500        R     MOV     A,array+01H
+009E AE00        R     MOV     R6,array
+00A0 22                RET     
+00A1         L?0167:
+00A1 7401              MOV     A,#01H
+00A3 93                MOVC    A,@A+DPTR
+00A4 24FC              ADD     A,#0FCH
+00A6 FF                MOV     R7,A
+00A7 020000      R     LJMP    _RTDSendByte
+             ; FUNCTION Com008D (END)
+
+             ; FUNCTION BitDly (BEGIN)
+                                           ; SOURCE LINE # 120
+                                           ; SOURCE LINE # 121
+                                           ; SOURCE LINE # 122
+0000 00                NOP     
+0001 00                NOP     
+0002 00                NOP     
+0003 00                NOP     
+0004 00                NOP     
+0005 00                NOP     
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 22  
+
+0006 00                NOP     
+0007 00                NOP     
+                                           ; SOURCE LINE # 123
+0008 00                NOP     
+0009 00                NOP     
+000A 00                NOP     
+000B 00                NOP     
+000C 00                NOP     
+000D 00                NOP     
+000E 00                NOP     
+000F 00                NOP     
+                                           ; SOURCE LINE # 124
+0010 00                NOP     
+0011 00                NOP     
+0012 00                NOP     
+0013 00                NOP     
+0014 00                NOP     
+0015 00                NOP     
+0016 00                NOP     
+0017 00                NOP     
+                                           ; SOURCE LINE # 125
+0018 00                NOP     
+0019 00                NOP     
+001A 00                NOP     
+001B 00                NOP     
+001C 00                NOP     
+001D 00                NOP     
+001E 00                NOP     
+001F 00                NOP     
+                                           ; SOURCE LINE # 126
+0020 22                RET     
+             ; FUNCTION BitDly (END)
+
+             ; FUNCTION _I2CRead (BEGIN)
+                                           ; SOURCE LINE # 128
+0000 8F00        R     MOV     addr,R7
+0002 8B00        R     MOV     count,R3
+;---- Variable 'index' assigned to Register 'R5' ----
+                                           ; SOURCE LINE # 129
+                                           ; SOURCE LINE # 132
+0004 E500        R     MOV     A,count
+0006 6039              JZ      ?C0006
+                                           ; SOURCE LINE # 133
+                                           ; SOURCE LINE # 134
+0008 E4                CLR     A
+0009 FB                MOV     R3,A
+000A 120000      R     LCALL   _I2CSendAddr
+                                           ; SOURCE LINE # 136
+000D 7B01              MOV     R3,#01H
+000F E4                CLR     A
+0010 FD                MOV     R5,A
+0011 AF00        R     MOV     R7,addr
+0013 120000      R     LCALL   _I2CSendAddr
+                                           ; SOURCE LINE # 138
+0016 1500        R     DEC     count
+                                           ; SOURCE LINE # 140
+0018 E4                CLR     A
+0019 F500        R     MOV     n,A
+001B         ?C0003:
+001B E500        R     MOV     A,n
+001D C3                CLR     C
+001E 9500        R     SUBB    A,count
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 23  
+
+0020 5010              JNC     ?C0004
+0022 E4                CLR     A
+0023 FF                MOV     R7,A
+0024 120000      R     LCALL   _I2CGetByte
+0027 7400        R     MOV     A,#LOW Data
+0029 2500        R     ADD     A,n
+002B F8                MOV     R0,A
+002C A607              MOV     @R0,AR7
+002E 0500        R     INC     n
+0030 80E9              SJMP    ?C0003
+0032         ?C0004:
+                                           ; SOURCE LINE # 142
+0032 7F01              MOV     R7,#01H
+0034 120000      R     LCALL   _I2CGetByte
+0037 7400        R     MOV     A,#LOW Data
+0039 2500        R     ADD     A,count
+003B F8                MOV     R0,A
+003C A607              MOV     @R0,AR7
+                                           ; SOURCE LINE # 144
+003E 120000      R     LCALL   I2CSendStop
+                                           ; SOURCE LINE # 145
+                                           ; SOURCE LINE # 146
+0041         ?C0006:
+0041 22                RET     
+             ; FUNCTION _I2CRead (END)
+
+             ; FUNCTION _I2CWrite (BEGIN)
+                                           ; SOURCE LINE # 148
+0000 8B00        R     MOV     array,R3
+0002 8A00        R     MOV     array+01H,R2
+0004 8900        R     MOV     array+02H,R1
+                                           ; SOURCE LINE # 149
+                                           ; SOURCE LINE # 152
+0006 120000      E     LCALL   ?C?CLDPTR
+0009 FF                MOV     R7,A
+000A 7403              MOV     A,#03H
+000C D3                SETB    C
+000D 9F                SUBB    A,R7
+000E 5039              JNC     ?C0011
+                                           ; SOURCE LINE # 153
+                                           ; SOURCE LINE # 154
+0010 8F00        R     MOV     len,R7
+                                           ; SOURCE LINE # 155
+0012 900001            MOV     DPTR,#01H
+0015 120000      E     LCALL   ?C?CLDOPTR
+0018 FF                MOV     R7,A
+0019 900002            MOV     DPTR,#02H
+001C 120000      E     LCALL   ?C?CLDOPTR
+001F FD                MOV     R5,A
+0020 E4                CLR     A
+0021 FB                MOV     R3,A
+0022 120000      R     LCALL   _I2CSendAddr
+                                           ; SOURCE LINE # 157
+0025 750003      R     MOV     n,#03H
+0028         ?C0008:
+0028 E500        R     MOV     A,n
+002A C3                CLR     C
+002B 9500        R     SUBB    A,len
+002D 5017              JNC     ?C0009
+002F AB00        R     MOV     R3,array
+0031 AA00        R     MOV     R2,array+01H
+0033 A900        R     MOV     R1,array+02H
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 24  
+
+0035 850082      R     MOV     DPL,n
+0038 758300            MOV     DPH,#00H
+003B 120000      E     LCALL   ?C?CLDOPTR
+003E FF                MOV     R7,A
+003F 120000      R     LCALL   _I2CSendByte
+0042 0500        R     INC     n
+0044 80E2              SJMP    ?C0008
+0046         ?C0009:
+                                           ; SOURCE LINE # 159
+0046 120000      R     LCALL   I2CSendStop
+                                           ; SOURCE LINE # 160
+                                           ; SOURCE LINE # 161
+0049         ?C0011:
+0049 22                RET     
+             ; FUNCTION _I2CWrite (END)
+
+             ; FUNCTION _I2CGetByte (BEGIN)
+                                           ; SOURCE LINE # 164
+;---- Variable 'ack' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 165
+                                           ; SOURCE LINE # 168
+;---- Variable 'r' assigned to Register 'R6' ----
+0000 E4                CLR     A
+0001 FE                MOV     R6,A
+                                           ; SOURCE LINE # 170
+;---- Variable 'm' assigned to Register 'R5' ----
+0002 FD                MOV     R5,A
+0003         ?C0012:
+                                           ; SOURCE LINE # 171
+                                           ; SOURCE LINE # 172
+0003 D296              SETB    bIIC_SCL
+                                           ; SOURCE LINE # 173
+0005 120000      R     LCALL   BitDly
+                                           ; SOURCE LINE # 175
+0008 EE                MOV     A,R6
+0009 25E0              ADD     A,ACC
+000B FE                MOV     R6,A
+000C A297              MOV     C,bIIC_SDA
+000E E4                CLR     A
+000F 33                RLC     A
+0010 4E                ORL     A,R6
+0011 FE                MOV     R6,A
+                                           ; SOURCE LINE # 177
+0012 C296              CLR     bIIC_SCL
+                                           ; SOURCE LINE # 178
+0014 120000      R     LCALL   BitDly
+                                           ; SOURCE LINE # 179
+0017 0D                INC     R5
+0018 BD08E8            CJNE    R5,#08H,?C0012
+001B         ?C0013:
+                                           ; SOURCE LINE # 182
+001B EF                MOV     A,R7
+001C 13                RRC     A
+                                           ; SOURCE LINE # 183
+                                           ; SOURCE LINE # 185
+                                           ; SOURCE LINE # 186
+                                           ; SOURCE LINE # 188
+001D 120000      R     LCALL   L?0158
+                                           ; SOURCE LINE # 189
+0020 120000      R     LCALL   BitDly
+                                           ; SOURCE LINE # 191
+0023 D297              SETB    bIIC_SDA
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 25  
+
+                                           ; SOURCE LINE # 213
+0025 AF06              MOV     R7,AR6
+                                           ; SOURCE LINE # 214
+0027         ?C0015:
+0027 22                RET     
+             ; FUNCTION _I2CGetByte (END)
+
+             ; FUNCTION _I2CSendByte (BEGIN)
+                                           ; SOURCE LINE # 216
+;---- Variable 'send' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 217
+                                           ; SOURCE LINE # 220
+;---- Variable 'm' assigned to Register 'R6' ----
+0000 E4                CLR     A
+0001 FE                MOV     R6,A
+0002         ?C0016:
+                                           ; SOURCE LINE # 221
+                                           ; SOURCE LINE # 222
+0002 EF                MOV     A,R7
+0003 33                RLC     A
+                                           ; SOURCE LINE # 223
+                                           ; SOURCE LINE # 225
+                                           ; SOURCE LINE # 226
+                                           ; SOURCE LINE # 228
+0004 120000      R     LCALL   L?0158
+                                           ; SOURCE LINE # 230
+0007 EF                MOV     A,R7
+0008 25E0              ADD     A,ACC
+000A FF                MOV     R7,A
+                                           ; SOURCE LINE # 231
+000B 0E                INC     R6
+000C BE08F3            CJNE    R6,#08H,?C0016
+000F         ?C0017:
+                                           ; SOURCE LINE # 233
+000F D297              SETB    bIIC_SDA
+                                           ; SOURCE LINE # 234
+                                           ; SOURCE LINE # 235
+                                           ; SOURCE LINE # 237
+0011 120000      R     LCALL   L?0159
+                                           ; SOURCE LINE # 238
+0014 020000      R     LJMP    BitDly
+             ; FUNCTION _I2CSendByte (END)
+
+             ; FUNCTION _I2CSendAddr (BEGIN)
+                                           ; SOURCE LINE # 258
+;---- Variable 'addr' assigned to Register 'R6' ----
+0000 AE07              MOV     R6,AR7
+;---- Variable 'rd' assigned to Register 'R3' ----
+;---- Variable 'index' assigned to Register 'R5' ----
+                                           ; SOURCE LINE # 259
+                                           ; SOURCE LINE # 261
+0002 D296              SETB    bIIC_SCL
+                                           ; SOURCE LINE # 262
+0004 C297              CLR     bIIC_SDA
+                                           ; SOURCE LINE # 263
+0006 120000      R     LCALL   BitDly
+                                           ; SOURCE LINE # 265
+0009 C296              CLR     bIIC_SCL
+                                           ; SOURCE LINE # 266
+000B EE                MOV     A,R6
+000C 2B                ADD     A,R3
+000D FF                MOV     R7,A
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 26  
+
+000E 120000      R     LCALL   _I2CSendByte
+                                           ; SOURCE LINE # 268
+0011 EB                MOV     A,R3
+0012 7005              JNZ     ?C0021
+0014 AF05              MOV     R7,AR5
+0016 120000      R     LCALL   _I2CSendByte
+                                           ; SOURCE LINE # 277
+0019         ?C0021:
+0019 22                RET     
+             ; FUNCTION _I2CSendAddr (END)
+
+             ; FUNCTION I2CSendStop (BEGIN)
+                                           ; SOURCE LINE # 279
+                                           ; SOURCE LINE # 280
+                                           ; SOURCE LINE # 282
+0000 C297              CLR     bIIC_SDA
+                                           ; SOURCE LINE # 283
+0002 120000      R     LCALL   BitDly
+                                           ; SOURCE LINE # 285
+0005 D296              SETB    bIIC_SCL
+                                           ; SOURCE LINE # 286
+0007 120000      R     LCALL   BitDly
+                                           ; SOURCE LINE # 288
+000A D297              SETB    bIIC_SDA
+                                           ; SOURCE LINE # 289
+000C 020000      R     LJMP    BitDly
+             ; FUNCTION I2CSendStop (END)
+
+             ; FUNCTION RTDGetByte (BEGIN)
+                                           ; SOURCE LINE # 300
+                                           ; SOURCE LINE # 301
+                                           ; SOURCE LINE # 338
+                                           ; SOURCE LINE # 339
+                                           ; SOURCE LINE # 340
+0000 120000      R     LCALL   L?0150
+0003 9200        R     MOV     r0,C
+                                           ; SOURCE LINE # 342
+                                           ; SOURCE LINE # 343
+                                           ; SOURCE LINE # 344
+0005 120000      R     LCALL   L?0150
+0008 9200        R     MOV     r1,C
+                                           ; SOURCE LINE # 346
+                                           ; SOURCE LINE # 347
+                                           ; SOURCE LINE # 348
+000A 120000      R     LCALL   L?0151
+000D 9200        R     MOV     r2,C
+                                           ; SOURCE LINE # 350
+                                           ; SOURCE LINE # 351
+                                           ; SOURCE LINE # 352
+000F 120000      R     LCALL   L?0151
+0012 9200        R     MOV     r3,C
+                                           ; SOURCE LINE # 354
+                                           ; SOURCE LINE # 355
+                                           ; SOURCE LINE # 356
+0014 120000      R     LCALL   L?0151
+0017 9200        R     MOV     r4,C
+                                           ; SOURCE LINE # 358
+                                           ; SOURCE LINE # 359
+                                           ; SOURCE LINE # 360
+0019 120000      R     LCALL   L?0151
+001C 9200        R     MOV     r5,C
+                                           ; SOURCE LINE # 362
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 27  
+
+                                           ; SOURCE LINE # 363
+                                           ; SOURCE LINE # 364
+001E 120000      R     LCALL   L?0151
+0021 9200        R     MOV     r6,C
+                                           ; SOURCE LINE # 366
+                                           ; SOURCE LINE # 367
+                                           ; SOURCE LINE # 368
+0023 120000      R     LCALL   L?0151
+0026 9200        R     MOV     r7,C
+                                           ; SOURCE LINE # 370
+0028 D294              SETB    bRTD_SCLK
+                                           ; SOURCE LINE # 375
+002A AF00        R     MOV     R7,Reg
+                                           ; SOURCE LINE # 376
+002C         ?C0023:
+002C 22                RET     
+             ; FUNCTION RTDGetByte (END)
+
+             ; FUNCTION L?0148 (BEGIN)
+0000         L?0149:
+0000 14                DEC     A
+0001 F582              MOV     DPL,A
+0003 8E83              MOV     DPH,R6
+0005 E4                CLR     A
+0006 93                MOVC    A,@A+DPTR
+0007 FF                MOV     R7,A
+             ; FUNCTION _RTDSendByte (BEGIN)
+                                           ; SOURCE LINE # 378
+;---- Variable 'send' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 379
+                                           ; SOURCE LINE # 424
+0008 EF                MOV     A,R7
+0009 13                RRC     A
+                                           ; SOURCE LINE # 425
+                                           ; SOURCE LINE # 426
+000A 120000      R     LCALL   L?0143
+                                           ; SOURCE LINE # 428
+000D EF                MOV     A,R7
+                                           ; SOURCE LINE # 429
+                                           ; SOURCE LINE # 430
+                                           ; SOURCE LINE # 432
+                                           ; SOURCE LINE # 433
+                                           ; SOURCE LINE # 434
+                                           ; SOURCE LINE # 436
+                                           ; SOURCE LINE # 437
+                                           ; SOURCE LINE # 438
+                                           ; SOURCE LINE # 440
+                                           ; SOURCE LINE # 441
+                                           ; SOURCE LINE # 442
+                                           ; SOURCE LINE # 444
+                                           ; SOURCE LINE # 445
+                                           ; SOURCE LINE # 446
+                                           ; SOURCE LINE # 448
+                                           ; SOURCE LINE # 449
+                                           ; SOURCE LINE # 450
+                                           ; SOURCE LINE # 452
+                                           ; SOURCE LINE # 453
+                                           ; SOURCE LINE # 454
+000E 120000      R     LCALL   L?0142
+                                           ; SOURCE LINE # 456
+0011 D290              SETB    bRTD_SDIO_0
+                                           ; SOURCE LINE # 457
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 28  
+
+0013 D294              SETB    bRTD_SCLK
+                                           ; SOURCE LINE # 462
+0015 22                RET     
+             ; FUNCTION _RTDSendByte (END)
+
+             ; FUNCTION L?0152 (BEGIN)
+0000 04                INC     A
+0001 F8                MOV     R0,A
+0002 E6                MOV     A,@R0
+0003 FF                MOV     R7,A
+0004 E4                CLR     A
+0005 FD                MOV     R5,A
+             ; FUNCTION _RTDSendAddr (BEGIN)
+                                           ; SOURCE LINE # 464
+;---- Variable 'addr' assigned to Register 'R7' ----
+;---- Variable 'inc' assigned to Register 'R3' ----
+;---- Variable 'rd' assigned to Register 'R5' ----
+                                           ; SOURCE LINE # 465
+                                           ; SOURCE LINE # 480
+0006 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 482
+0009 D290              SETB    bRTD_SDIO_0
+                                           ; SOURCE LINE # 483
+000B D294              SETB    bRTD_SCLK
+                                           ; SOURCE LINE # 484
+000D ED                MOV     A,R5
+000E 13                RRC     A
+                                           ; SOURCE LINE # 485
+                                           ; SOURCE LINE # 486
+000F 120000      R     LCALL   L?0143
+                                           ; SOURCE LINE # 487
+0012 EB                MOV     A,R3
+0013 13                RRC     A
+                                           ; SOURCE LINE # 488
+                                           ; SOURCE LINE # 489
+0014 120000      R     LCALL   L?0143
+                                           ; SOURCE LINE # 490
+0017 D290              SETB    bRTD_SDIO_0
+                                           ; SOURCE LINE # 494
+0019 22                RET     
+             ; FUNCTION _RTDSendAddr (END)
+
+             ; FUNCTION RTDSendStop (BEGIN)
+                                           ; SOURCE LINE # 496
+                                           ; SOURCE LINE # 497
+                                           ; SOURCE LINE # 499
+0000 C294              CLR     bRTD_SCLK
+                                           ; SOURCE LINE # 500
+0002 D294              SETB    bRTD_SCLK
+                                           ; SOURCE LINE # 501
+0004 D295              SETB    bRTD_SCSB
+                                           ; SOURCE LINE # 503
+0006 22                RET     
+             ; FUNCTION RTDSendStop (END)
+
+             ; FUNCTION _RTDRead (BEGIN)
+                                           ; SOURCE LINE # 505
+;---- Variable 'index' assigned to Register 'R6' ----
+0000 AE07              MOV     R6,AR7
+;---- Variable 'count' assigned to Register 'R4' ----
+0002 AC05              MOV     R4,AR5
+;---- Variable 'inc' assigned to Register 'R3' ----
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 29  
+
+                                           ; SOURCE LINE # 506
+                                           ; SOURCE LINE # 507
+0004 EC                MOV     A,R4
+0005 601A              JZ      ?C0031
+                                           ; SOURCE LINE # 508
+                                           ; SOURCE LINE # 509
+0007 C295              CLR     bRTD_SCSB
+                                           ; SOURCE LINE # 511
+0009 7D01              MOV     R5,#01H
+000B 120000      R     LCALL   _RTDSendAddr
+                                           ; SOURCE LINE # 513
+000E E4                CLR     A
+000F FE                MOV     R6,A
+0010         ?C0030:
+                                           ; SOURCE LINE # 515
+                                           ; SOURCE LINE # 516
+0010 120000      R     LCALL   RTDGetByte
+0013 AD06              MOV     R5,AR6
+0015 0E                INC     R6
+0016 7400        R     MOV     A,#LOW Data
+0018 2D                ADD     A,R5
+0019 F8                MOV     R0,A
+001A A607              MOV     @R0,AR7
+                                           ; SOURCE LINE # 517
+                                           ; SOURCE LINE # 518
+001C DCF2              DJNZ    R4,?C0030
+                                           ; SOURCE LINE # 520
+001E 120000      R     LCALL   RTDSendStop
+                                           ; SOURCE LINE # 522
+                                           ; SOURCE LINE # 523
+0021         ?C0031:
+0021 22                RET     
+             ; FUNCTION _RTDRead (END)
+
+             ; FUNCTION _RTDWrite (BEGIN)
+                                           ; SOURCE LINE # 525
+;---- Variable 'array' assigned to Register 'R6' ----
+0000 AE07              MOV     R6,AR7
+                                           ; SOURCE LINE # 526
+0002         ?C0034:
+                                           ; SOURCE LINE # 531
+                                           ; SOURCE LINE # 532
+0002 A806              MOV     R0,AR6
+0004 E6                MOV     A,@R0
+0005 FF                MOV     R7,A
+0006 54FC              ANL     A,#0FCH
+0008 603E              JZ      ?C0036
+000A         ?C0035:
+                                           ; SOURCE LINE # 534
+000A EF                MOV     A,R7
+000B 24FD              ADD     A,#0FDH
+;---- Variable 'len' assigned to Register 'R4' ----
+000D FC                MOV     R4,A
+                                           ; SOURCE LINE # 535
+000E 0E                INC     R6
+                                           ; SOURCE LINE # 536
+000F C295              CLR     bRTD_SCSB
+                                           ; SOURCE LINE # 539
+0011 A806              MOV     R0,AR6
+0013 E6                MOV     A,@R0
+0014 FA                MOV     R2,A
+0015 6402              XRL     A,#02H
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 30  
+
+0017 7016              JNZ     ?C0037
+                                           ; SOURCE LINE # 540
+                                           ; SOURCE LINE # 541
+0019 E8                MOV     A,R0
+001A 7B01              MOV     R3,#01H
+001C 120000      R     LCALL   L?0152
+                                           ; SOURCE LINE # 543
+001F 0E                INC     R6
+0020 0E                INC     R6
+                                           ; SOURCE LINE # 544
+0021 A806              MOV     R0,AR6
+0023 E6                MOV     A,@R0
+;---- Variable 'm' assigned to Register 'R5' ----
+0024 FD                MOV     R5,A
+0025         ?C0040:
+                                           ; SOURCE LINE # 547
+                                           ; SOURCE LINE # 548
+0025 AF05              MOV     R7,AR5
+0027 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 549
+                                           ; SOURCE LINE # 550
+002A DCF9              DJNZ    R4,?C0040
+                                           ; SOURCE LINE # 552
+002C 0E                INC     R6
+                                           ; SOURCE LINE # 553
+002D 8014              SJMP    ?C0041
+002F         ?C0037:
+                                           ; SOURCE LINE # 555
+                                           ; SOURCE LINE # 556
+002F EE                MOV     A,R6
+0030 AB02              MOV     R3,AR2
+0032 120000      R     LCALL   L?0152
+                                           ; SOURCE LINE # 558
+0035 0E                INC     R6
+0036 0E                INC     R6
+0037         ?C0044:
+                                           ; SOURCE LINE # 560
+                                           ; SOURCE LINE # 561
+0037 AF06              MOV     R7,AR6
+0039 0E                INC     R6
+003A A807              MOV     R0,AR7
+003C E6                MOV     A,@R0
+003D FF                MOV     R7,A
+003E 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 562
+                                           ; SOURCE LINE # 563
+0041 DCF4              DJNZ    R4,?C0044
+                                           ; SOURCE LINE # 564
+0043         ?C0041:
+                                           ; SOURCE LINE # 565
+0043 120000      R     LCALL   RTDSendStop
+                                           ; SOURCE LINE # 566
+                                           ; SOURCE LINE # 567
+0046 80BA              SJMP    ?C0034
+                                           ; SOURCE LINE # 568
+0048         ?C0036:
+0048 22                RET     
+             ; FUNCTION _RTDWrite (END)
+
+             ; FUNCTION _RTDCodeW (BEGIN)
+                                           ; SOURCE LINE # 570
+0000 8E00        R     MOV     array,R6
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 31  
+
+0002 8F00        R     MOV     array+01H,R7
+                                           ; SOURCE LINE # 571
+0004         ?C0047:
+                                           ; SOURCE LINE # 575
+                                           ; SOURCE LINE # 576
+0004 850082      R     MOV     DPL,array+01H
+0007 850083      R     MOV     DPH,array
+000A E4                CLR     A
+000B 93                MOVC    A,@A+DPTR
+000C FF                MOV     R7,A
+000D 54FC              ANL     A,#0FCH
+000F 6063              JZ      ?C0049
+0011         ?C0048:
+                                           ; SOURCE LINE # 578
+0011 EF                MOV     A,R7
+0012 24FD              ADD     A,#0FDH
+;---- Variable 'len' assigned to Register 'R6' ----
+0014 FE                MOV     R6,A
+                                           ; SOURCE LINE # 579
+0015 0500        R     INC     array+01H
+0017 E500        R     MOV     A,array+01H
+0019 7002              JNZ     ?C0129
+001B 0500        R     INC     array
+001D         ?C0129:
+                                           ; SOURCE LINE # 580
+001D C295              CLR     bRTD_SCSB
+                                           ; SOURCE LINE # 582
+001F F582              MOV     DPL,A
+0021 850083      R     MOV     DPH,array
+0024 E4                CLR     A
+0025 93                MOVC    A,@A+DPTR
+0026 FC                MOV     R4,A
+0027 6402              XRL     A,#02H
+0029 701F              JNZ     ?C0050
+                                           ; SOURCE LINE # 583
+                                           ; SOURCE LINE # 584
+002B 04                INC     A
+002C 7B01              MOV     R3,#01H
+                                           ; SOURCE LINE # 586
+002E 120000      R     LCALL   L?0157
+                                           ; SOURCE LINE # 587
+0031 850082      R     MOV     DPL,array+01H
+0034 F583              MOV     DPH,A
+0036 E4                CLR     A
+0037 93                MOVC    A,@A+DPTR
+;---- Variable 'm' assigned to Register 'R5' ----
+0038 FD                MOV     R5,A
+0039         ?C0053:
+                                           ; SOURCE LINE # 590
+                                           ; SOURCE LINE # 591
+0039 AF05              MOV     R7,AR5
+003B 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 592
+                                           ; SOURCE LINE # 593
+003E DEF9              DJNZ    R6,?C0053
+                                           ; SOURCE LINE # 595
+0040 0500        R     INC     array+01H
+0042 E500        R     MOV     A,array+01H
+0044 7002              JNZ     ?C0130
+0046 0500        R     INC     array
+0048         ?C0130:
+                                           ; SOURCE LINE # 596
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 32  
+
+0048 8024              SJMP    ?C0054
+004A         ?C0050:
+                                           ; SOURCE LINE # 598
+                                           ; SOURCE LINE # 599
+004A 850082      R     MOV     DPL,array+01H
+004D 850083      R     MOV     DPH,array
+0050 7401              MOV     A,#01H
+0052 AB04              MOV     R3,AR4
+                                           ; SOURCE LINE # 601
+0054 120000      R     LCALL   L?0157
+0057         ?C0057:
+                                           ; SOURCE LINE # 603
+                                           ; SOURCE LINE # 604
+0057 0500        R     INC     array+01H
+0059 E500        R     MOV     A,array+01H
+005B AC00        R     MOV     R4,array
+005D 7002              JNZ     ?C0131
+005F 0500        R     INC     array
+0061         ?C0131:
+0061 14                DEC     A
+0062 F582              MOV     DPL,A
+0064 8C83              MOV     DPH,R4
+0066 E4                CLR     A
+0067 93                MOVC    A,@A+DPTR
+0068 FF                MOV     R7,A
+0069 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 605
+                                           ; SOURCE LINE # 606
+006C DEE9              DJNZ    R6,?C0057
+                                           ; SOURCE LINE # 607
+006E         ?C0054:
+                                           ; SOURCE LINE # 608
+006E 120000      R     LCALL   RTDSendStop
+                                           ; SOURCE LINE # 610
+                                           ; SOURCE LINE # 611
+0071 020000      R     LJMP    ?C0047
+                                           ; SOURCE LINE # 612
+0074         ?C0049:
+0074 22                RET     
+             ; FUNCTION _RTDCodeW (END)
+
+             ; FUNCTION _RTDOSDW (BEGIN)
+                                           ; SOURCE LINE # 614
+;---- Variable 'len' assigned to Register 'R4' ----
+0000 8E00        R     MOV     array,R6
+0002 8F00        R     MOV     array+01H,R7
+                                           ; SOURCE LINE # 615
+0004         ?C0060:
+                                           ; SOURCE LINE # 618
+                                           ; SOURCE LINE # 619
+0004 120000      R     LCALL   L?0153
+0007 E4                CLR     A
+0008 93                MOVC    A,@A+DPTR
+0009 64FD              XRL     A,#0FDH
+000B 7003              JNZ     $ + 5H
+000D 020000      R     LJMP    ?C0062
+0010         ?C0061:
+                                           ; SOURCE LINE # 621
+                                           ; SOURCE LINE # 622
+0010 120000      R     LCALL   L?0164
+                                           ; SOURCE LINE # 623
+0013 120000      R     LCALL   L?0165
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 33  
+
+0016 7002              JNZ     ?C0132
+0018 0500        R     INC     array
+001A         ?C0132:
+001A 120000      R     LCALL   L?0148
+                                           ; SOURCE LINE # 624
+001D 120000      R     LCALL   L?0165
+0020 7002              JNZ     ?C0133
+0022 0500        R     INC     array
+0024         ?C0133:
+0024 120000      R     LCALL   L?0148
+                                           ; SOURCE LINE # 626
+                                           ; SOURCE LINE # 628
+                                           ; SOURCE LINE # 629
+0027 120000      R     LCALL   L?0162
+002A         ?C0065:
+                                           ; SOURCE LINE # 631
+                                           ; SOURCE LINE # 632
+002A 120000      R     LCALL   L?0153
+002D E4                CLR     A
+002E 93                MOVC    A,@A+DPTR
+002F 64FC              XRL     A,#0FCH
+0031 7026              JNZ     ?C0066
+                                           ; SOURCE LINE # 633
+                                           ; SOURCE LINE # 634
+0033 7402              MOV     A,#02H
+0035 93                MOVC    A,@A+DPTR
+0036 64FE              XRL     A,#0FEH
+0038 7015              JNZ     ?C0067
+                                           ; SOURCE LINE # 635
+003A         ?C0070:
+                                           ; SOURCE LINE # 637
+                                           ; SOURCE LINE # 638
+003A 120000      R     LCALL   L?0154
+003D 7403              MOV     A,#03H
+003F 93                MOVC    A,@A+DPTR
+0040 14                DEC     A
+0041 FC                MOV     R4,A
+                                           ; SOURCE LINE # 639
+0042 120000      R     LCALL   L?0167
+                                           ; SOURCE LINE # 640
+0045 AF04              MOV     R7,AR4
+0047 1C                DEC     R4
+0048 EF                MOV     A,R7
+0049 70EF              JNZ     ?C0070
+                                           ; SOURCE LINE # 642
+004B 7404              MOV     A,#04H
+                                           ; SOURCE LINE # 643
+004D 802A              SJMP    ?C0140
+004F         ?C0067:
+                                           ; SOURCE LINE # 645
+                                           ; SOURCE LINE # 646
+004F 120000      R     LCALL   L?0154
+0052 120000      R     LCALL   L?0167
+                                           ; SOURCE LINE # 647
+0055 7402              MOV     A,#02H
+0057         ?C0139:
+                                           ; SOURCE LINE # 648
+                                           ; SOURCE LINE # 649
+0057 8020              SJMP    ?C0140
+0059         ?C0066:
+                                           ; SOURCE LINE # 650
+0059 120000      R     LCALL   L?0154
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 34  
+
+005C 7401              MOV     A,#01H
+005E 93                MOVC    A,@A+DPTR
+005F 64FE              XRL     A,#0FEH
+0061 7021              JNZ     ?C0073
+                                           ; SOURCE LINE # 651
+                                           ; SOURCE LINE # 652
+0063 7402              MOV     A,#02H
+0065 93                MOVC    A,@A+DPTR
+0066 14                DEC     A
+0067 FC                MOV     R4,A
+0068         ?C0076:
+                                           ; SOURCE LINE # 654
+                                           ; SOURCE LINE # 655
+0068 120000      R     LCALL   L?0154
+006B E4                CLR     A
+006C 93                MOVC    A,@A+DPTR
+006D FF                MOV     R7,A
+006E 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 656
+0071 AF04              MOV     R7,AR4
+0073 1C                DEC     R4
+0074 EF                MOV     A,R7
+0075 70F1              JNZ     ?C0076
+                                           ; SOURCE LINE # 658
+0077 7403              MOV     A,#03H
+0079         ?C0140:
+0079 2500        R     ADD     A,array+01H
+007B F500        R     MOV     array+01H,A
+007D E4                CLR     A
+007E 3500        R     ADDC    A,array
+0080 F500        R     MOV     array,A
+                                           ; SOURCE LINE # 659
+0082 800A              SJMP    ?C0063
+0084         ?C0073:
+                                           ; SOURCE LINE # 661
+0084 120000      R     LCALL   L?0166
+0087 7002              JNZ     ?C0134
+0089 0500        R     INC     array
+008B         ?C0134:
+008B 120000      R     LCALL   L?0149
+                                           ; SOURCE LINE # 664
+008E         ?C0063:
+008E 120000      R     LCALL   L?0154
+0091 E4                CLR     A
+0092 93                MOVC    A,@A+DPTR
+0093 F4                CPL     A
+0094 7094              JNZ     ?C0065
+                                           ; SOURCE LINE # 665
+0096 0500        R     INC     array+01H
+0098 E500        R     MOV     A,array+01H
+009A 7002              JNZ     ?C0135
+009C 0500        R     INC     array
+009E         ?C0135:
+                                           ; SOURCE LINE # 666
+009E 120000      R     LCALL   RTDSendStop
+                                           ; SOURCE LINE # 668
+                                           ; SOURCE LINE # 669
+00A1 020000      R     LJMP    ?C0060
+                                           ; SOURCE LINE # 671
+00A4         ?C0062:
+00A4 22                RET     
+             ; FUNCTION _RTDOSDW (END)
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 35  
+
+
+             ; FUNCTION _RTDSetByte (BEGIN)
+                                           ; SOURCE LINE # 674
+;---- Variable 'val' assigned to Register 'R6' ----
+0000 AE05              MOV     R6,AR5
+;---- Variable 'addr' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 675
+                                           ; SOURCE LINE # 677
+0002 C295              CLR     bRTD_SCSB
+                                           ; SOURCE LINE # 679
+0004 7B01              MOV     R3,#01H
+0006 E4                CLR     A
+0007 FD                MOV     R5,A
+0008 120000      R     LCALL   _RTDSendAddr
+                                           ; SOURCE LINE # 682
+000B AF06              MOV     R7,AR6
+000D 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 684
+0010 020000      R     LJMP    RTDSendStop
+             ; FUNCTION _RTDSetByte (END)
+
+             ; FUNCTION _RTDSetBit (BEGIN)
+                                           ; SOURCE LINE # 688
+;---- Variable 'addr' assigned to Register 'R6' ----
+0000 AE07              MOV     R6,AR7
+;---- Variable 'or' assigned to Register 'R4' ----
+0002 AC03              MOV     R4,AR3
+;---- Variable 'and' assigned to Register 'R2' ----
+0004 AA05              MOV     R2,AR5
+                                           ; SOURCE LINE # 689
+                                           ; SOURCE LINE # 691
+0006 C295              CLR     bRTD_SCSB
+                                           ; SOURCE LINE # 692
+0008 7B01              MOV     R3,#01H
+000A 7D01              MOV     R5,#01H
+000C 120000      R     LCALL   _RTDSendAddr
+                                           ; SOURCE LINE # 695
+000F 120000      R     LCALL   RTDGetByte
+0012 EF                MOV     A,R7
+0013 5A                ANL     A,R2
+0014 4204              ORL     AR4,A
+                                           ; SOURCE LINE # 697
+0016 120000      R     LCALL   RTDSendStop
+                                           ; SOURCE LINE # 700
+0019 C295              CLR     bRTD_SCSB
+                                           ; SOURCE LINE # 701
+001B AF06              MOV     R7,AR6
+001D 1D                DEC     R5
+001E 120000      R     LCALL   _RTDSendAddr
+                                           ; SOURCE LINE # 704
+0021 AF04              MOV     R7,AR4
+0023 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 706
+0026 020000      R     LJMP    RTDSendStop
+             ; FUNCTION _RTDSetBit (END)
+
+             ; FUNCTION _Load_VLC_Font (BEGIN)
+                                           ; SOURCE LINE # 712
+0000 8E00        R     MOV     array,R6
+0002 8F00        R     MOV     array+01H,R7
+0004 8C00        R     MOV     start,R4
+0006 8D00        R     MOV     start+01H,R5
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 36  
+
+0008 8A00        R     MOV     length,R2
+000A 8B00        R     MOV     length+01H,R3
+                                           ; SOURCE LINE # 713
+                                           ; SOURCE LINE # 722
+000C 7480              MOV     A,#080H
+000E 2500        R     ADD     A,start+01H
+0010 F500        R     MOV     start+01H,A
+0012 7402              MOV     A,#02H
+0014 3500        R     ADDC    A,start
+0016 F500        R     MOV     start,A
+                                           ; SOURCE LINE # 724
+                                           ; SOURCE LINE # 725
+0018 120000      R     LCALL   L?0164
+                                           ; SOURCE LINE # 726
+001B E500        R     MOV     A,start
+001D 540F              ANL     A,#0FH
+001F 44D0              ORL     A,#0D0H
+0021 F500        R     MOV     ucTemp,A
+                                           ; SOURCE LINE # 727
+0023 FF                MOV     R7,A
+0024 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 728
+0027 E500        R     MOV     A,start+01H
+0029 F500        R     MOV     ucTemp,A
+                                           ; SOURCE LINE # 729
+002B AF00        R     MOV     R7,ucTemp
+002D 120000      R     LCALL   _RTDSendByte
+                                           ; SOURCE LINE # 731
+                                           ; SOURCE LINE # 733
+                                           ; SOURCE LINE # 734
+0030 120000      R     LCALL   L?0162
+                                           ; SOURCE LINE # 736
+0033 E4                CLR     A
+0034 F500        R     MOV     ucCnt,A
+                                           ; SOURCE LINE # 737
+0036 F500        R     MOV     uiCount,A
+0038 F500        R     MOV     uiCount+01H,A
+                                           ; SOURCE LINE # 738
+003A C200        R     CLR     bBit
+                                           ; SOURCE LINE # 739
+003C F500        R     MOV     ucByte_Temp,A
+003E         ?C0082:
+                                           ; SOURCE LINE # 742
+                                           ; SOURCE LINE # 743
+003E E4                CLR     A
+003F F500        R     MOV     m,A
+0041         ?C0083:
+                                           ; SOURCE LINE # 744
+                                           ; SOURCE LINE # 746
+0041 AF00        R     MOV     R7,array+01H
+0043 AE00        R     MOV     R6,array
+0045 120000      R     LCALL   _Get_VLD
+0048 7800        R     MOV     R0,#LOW ucTemp_VLD
+                                           ; SOURCE LINE # 747
+004A 120000      R     LCALL   L?0145
+004D 7800        R     MOV     R0,#LOW ucTemp_VLD
+                                           ; SOURCE LINE # 748
+004F 120000      R     LCALL   L?0155
+0052 7800        R     MOV     R0,#LOW ucTemp_VLD+01H
+                                           ; SOURCE LINE # 749
+0054 120000      R     LCALL   L?0145
+0057 7800        R     MOV     R0,#LOW ucTemp_VLD+01H
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 37  
+
+                                           ; SOURCE LINE # 750
+0059 120000      R     LCALL   L?0155
+005C EF                MOV     A,R7
+005D C4                SWAP    A
+005E 54F0              ANL     A,#0F0H
+0060 7800        R     MOV     R0,#LOW ucTemp_VLD+02H
+0062 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 751
+0063 AF00        R     MOV     R7,array+01H
+0065 AE00        R     MOV     R6,array
+0067 120000      R     LCALL   _Get_VLD
+006A 7800        R     MOV     R0,#LOW ucTemp_VLD+02H
+006C E6                MOV     A,@R0
+006D 4F                ORL     A,R7
+006E FF                MOV     R7,A
+006F F6                MOV     @R0,A
+                                           ; SOURCE LINE # 754
+0070 18                DEC     R0
+0071 E6                MOV     A,@R0
+0072 FE                MOV     R6,A
+0073 C4                SWAP    A
+0074 54F0              ANL     A,#0F0H
+0076 FD                MOV     R5,A
+0077 EF                MOV     A,R7
+0078 540F              ANL     A,#0FH
+007A 4D                ORL     A,R5
+007B F500        R     MOV     ucTemp,A
+                                           ; SOURCE LINE # 755
+007D 18                DEC     R0
+007E E6                MOV     A,@R0
+007F FD                MOV     R5,A
+0080 540F              ANL     A,#0FH
+0082 FC                MOV     R4,A
+0083 EF                MOV     A,R7
+0084 54F0              ANL     A,#0F0H
+0086 4C                ORL     A,R4
+0087 F500        R     MOV     ucTemp+01H,A
+                                           ; SOURCE LINE # 756
+0089 EE                MOV     A,R6
+008A C4                SWAP    A
+008B 540F              ANL     A,#0FH
+008D FF                MOV     R7,A
+008E ED                MOV     A,R5
+008F 54F0              ANL     A,#0F0H
+0091 4F                ORL     A,R7
+0092 F500        R     MOV     ucTemp+02H,A
+                                           ; SOURCE LINE # 758
+;---- Variable 'n' assigned to Register 'R7' ----
+0094 E4                CLR     A
+0095 FF                MOV     R7,A
+0096         ?C0086:
+                                           ; SOURCE LINE # 759
+                                           ; SOURCE LINE # 794
+0096 7400        R     MOV     A,#LOW ucTemp
+0098 2F                ADD     A,R7
+0099 F8                MOV     R0,A
+009A E6                MOV     A,@R0
+009B FE                MOV     R6,A
+009C 13                RRC     A
+                                           ; SOURCE LINE # 795
+                                           ; SOURCE LINE # 796
+009D 120000      R     LCALL   L?0143
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 38  
+
+                                           ; SOURCE LINE # 797
+00A0 EE                MOV     A,R6
+                                           ; SOURCE LINE # 798
+                                           ; SOURCE LINE # 799
+                                           ; SOURCE LINE # 800
+                                           ; SOURCE LINE # 801
+                                           ; SOURCE LINE # 802
+                                           ; SOURCE LINE # 803
+                                           ; SOURCE LINE # 804
+                                           ; SOURCE LINE # 805
+                                           ; SOURCE LINE # 806
+                                           ; SOURCE LINE # 807
+                                           ; SOURCE LINE # 808
+                                           ; SOURCE LINE # 809
+                                           ; SOURCE LINE # 810
+                                           ; SOURCE LINE # 811
+                                           ; SOURCE LINE # 812
+                                           ; SOURCE LINE # 813
+                                           ; SOURCE LINE # 814
+                                           ; SOURCE LINE # 815
+                                           ; SOURCE LINE # 816
+                                           ; SOURCE LINE # 817
+00A1 120000      R     LCALL   L?0142
+                                           ; SOURCE LINE # 818
+00A4 D290              SETB    bRTD_SDIO_0
+                                           ; SOURCE LINE # 819
+00A6 D294              SETB    bRTD_SCLK
+                                           ; SOURCE LINE # 821
+00A8 0F                INC     R7
+00A9 BF03EA            CJNE    R7,#03H,?C0086
+                                           ; SOURCE LINE # 822
+00AC         ?C0085:
+00AC 0500        R     INC     m
+00AE E500        R     MOV     A,m
+00B0 C3                CLR     C
+00B1 9409              SUBB    A,#09H
+00B3 408C              JC      ?C0083
+                                           ; SOURCE LINE # 823
+00B5         ?C0080:
+                                           ; SOURCE LINE # 824
+00B5 E500        R     MOV     A,length+01H
+00B7 1500        R     DEC     length+01H
+00B9 7002              JNZ     ?C0136
+00BB 1500        R     DEC     length
+00BD         ?C0136:
+00BD 14                DEC     A
+00BE 4500        R     ORL     A,length
+00C0 6003              JZ      $ + 5H
+00C2 020000      R     LJMP    ?C0082
+                                           ; SOURCE LINE # 826
+00C5 020000      R     LJMP    RTDSendStop
+                                           ; SOURCE LINE # 828
+00C8         L?0145:
+00C8 EF                MOV     A,R7
+00C9 C4                SWAP    A
+00CA 54F0              ANL     A,#0F0H
+00CC F6                MOV     @R0,A
+00CD AF00        R     MOV     R7,array+01H
+00CF AE00        R     MOV     R6,array
+00D1 120000      R     LCALL   _Get_VLD
+00D4 22                RET     
+00D5         L?0155:
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 39  
+
+00D5 E6                MOV     A,@R0
+00D6 4F                ORL     A,R7
+00D7 F6                MOV     @R0,A
+00D8 AF00        R     MOV     R7,array+01H
+00DA AE00        R     MOV     R6,array
+00DC 120000      R     LCALL   _Get_VLD
+00DF 22                RET     
+             ; FUNCTION _Load_VLC_Font (END)
+
+             ; FUNCTION _Get_VLD (BEGIN)
+                                           ; SOURCE LINE # 830
+0000 8E00        R     MOV     array,R6
+0002 8F00        R     MOV     array+01H,R7
+                                           ; SOURCE LINE # 831
+                                           ; SOURCE LINE # 832
+0004 E4                CLR     A
+0005 F500        R     MOV     ucZero_Cnt,A
+                                           ; SOURCE LINE # 833
+0007 C200        R     CLR     bSec_Part
+0009         ?C0090:
+                                           ; SOURCE LINE # 835
+                                           ; SOURCE LINE # 836
+                                           ; SOURCE LINE # 837
+0009 E500        R     MOV     A,ucCnt
+000B 700F              JNZ     ?C0093
+                                           ; SOURCE LINE # 838
+                                           ; SOURCE LINE # 839
+000D E500        R     MOV     A,array+01H
+000F 2500        R     ADD     A,uiCount+01H
+0011 F582              MOV     DPL,A
+0013 E500        R     MOV     A,array
+                                           ; SOURCE LINE # 840
+                                           ; SOURCE LINE # 841
+0015 120000      R     LCALL   L?0160
+0018 7002              JNZ     ?C0137
+001A 0500        R     INC     uiCount
+001C         ?C0137:
+                                           ; SOURCE LINE # 842
+001C         ?C0093:
+                                           ; SOURCE LINE # 844
+001C E500        R     MOV     A,ucCnt
+001E D3                SETB    C
+001F 9400              SUBB    A,#00H
+0021 40E6              JC      ?C0090
+                                           ; SOURCE LINE # 845
+                                           ; SOURCE LINE # 846
+                                           ; SOURCE LINE # 847
+0023 120000      R     LCALL   L?0161
+                                           ; SOURCE LINE # 849
+0026 300007      R     JNB     bBit,?C0095
+0029 200004      R     JB      bSec_Part,?C0095
+                                           ; SOURCE LINE # 850
+                                           ; SOURCE LINE # 851
+002C D200        R     SETB    bSec_Part
+                                           ; SOURCE LINE # 852
+002E 8002              SJMP    ?C0096
+0030         ?C0095:
+                                           ; SOURCE LINE # 854
+                                           ; SOURCE LINE # 855
+0030 0500        R     INC     ucZero_Cnt
+                                           ; SOURCE LINE # 856
+0032         ?C0096:
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 40  
+
+                                           ; SOURCE LINE # 858
+0032 3000E7      R     JNB     bSec_Part,?C0093
+                                           ; SOURCE LINE # 859
+                                           ; SOURCE LINE # 860
+0035 E500        R     MOV     A,ucZero_Cnt
+0037 14                DEC     A
+0038 6017              JZ      ?C0101
+003A 14                DEC     A
+003B 6025              JZ      ?C0104
+003D 14                DEC     A
+003E 6033              JZ      ?C0107
+0040 14                DEC     A
+0041 6041              JZ      ?C0110
+0043 14                DEC     A
+0044 6073              JZ      ?C0121
+0046 2405              ADD     A,#05H
+0048 70D2              JNZ     ?C0093
+                                           ; SOURCE LINE # 861
+                                           ; SOURCE LINE # 862
+004A         ?C0099:
+                                           ; SOURCE LINE # 863
+004A C200        R     CLR     bSec_Part
+                                           ; SOURCE LINE # 864
+004C E4                CLR     A
+004D F500        R     MOV     ucZero_Cnt,A
+                                           ; SOURCE LINE # 865
+004F FF                MOV     R7,A
+0050 22                RET     
+                                           ; SOURCE LINE # 867
+0051         ?C0101:
+                                           ; SOURCE LINE # 868
+0051 120000      R     LCALL   L?0144
+                                           ; SOURCE LINE # 869
+0054 C200        R     CLR     bSec_Part
+                                           ; SOURCE LINE # 870
+0056 E4                CLR     A
+0057 F500        R     MOV     ucZero_Cnt,A
+                                           ; SOURCE LINE # 872
+0059 200003      R     JB      bBit,?C0102
+                                           ; SOURCE LINE # 873
+                                           ; SOURCE LINE # 874
+005C 7F01              MOV     R7,#01H
+005E 22                RET     
+                                           ; SOURCE LINE # 875
+005F         ?C0102:
+                                           ; SOURCE LINE # 877
+                                           ; SOURCE LINE # 878
+005F 7F0F              MOV     R7,#0FH
+0061 22                RET     
+                                           ; SOURCE LINE # 879
+                                           ; SOURCE LINE # 881
+0062         ?C0104:
+                                           ; SOURCE LINE # 882
+0062 120000      R     LCALL   L?0144
+                                           ; SOURCE LINE # 883
+0065 C200        R     CLR     bSec_Part
+                                           ; SOURCE LINE # 884
+0067 E4                CLR     A
+0068 F500        R     MOV     ucZero_Cnt,A
+                                           ; SOURCE LINE # 886
+006A 200003      R     JB      bBit,?C0105
+                                           ; SOURCE LINE # 887
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 41  
+
+                                           ; SOURCE LINE # 888
+006D 7F02              MOV     R7,#02H
+006F 22                RET     
+                                           ; SOURCE LINE # 889
+0070         ?C0105:
+                                           ; SOURCE LINE # 891
+                                           ; SOURCE LINE # 892
+0070 7F08              MOV     R7,#08H
+0072 22                RET     
+                                           ; SOURCE LINE # 893
+                                           ; SOURCE LINE # 895
+0073         ?C0107:
+                                           ; SOURCE LINE # 896
+0073 120000      R     LCALL   L?0146
+                                           ; SOURCE LINE # 897
+0076 C200        R     CLR     bSec_Part
+                                           ; SOURCE LINE # 898
+0078 E4                CLR     A
+0079 F500        R     MOV     ucZero_Cnt,A
+                                           ; SOURCE LINE # 900
+007B 200003      R     JB      bBit,?C0108
+                                           ; SOURCE LINE # 901
+                                           ; SOURCE LINE # 902
+007E 7F0C              MOV     R7,#0CH
+0080 22                RET     
+                                           ; SOURCE LINE # 903
+0081         ?C0108:
+                                           ; SOURCE LINE # 905
+                                           ; SOURCE LINE # 906
+0081 7F07              MOV     R7,#07H
+0083 22                RET     
+                                           ; SOURCE LINE # 907
+                                           ; SOURCE LINE # 909
+0084         ?C0110:
+                                           ; SOURCE LINE # 910
+0084 120000      R     LCALL   L?0146
+                                           ; SOURCE LINE # 911
+0087 C200        R     CLR     bSec_Part
+                                           ; SOURCE LINE # 912
+0089 E4                CLR     A
+008A F500        R     MOV     ucZero_Cnt,A
+                                           ; SOURCE LINE # 914
+008C 30000C      R     JNB     bBit,?C0111
+                                           ; SOURCE LINE # 915
+                                           ; SOURCE LINE # 916
+008F 120000      R     LCALL   L?0147
+                                           ; SOURCE LINE # 918
+0092 200003      R     JB      bBit,?C0112
+                                           ; SOURCE LINE # 919
+                                           ; SOURCE LINE # 920
+0095 7F04              MOV     R7,#04H
+0097 22                RET     
+                                           ; SOURCE LINE # 921
+0098         ?C0112:
+                                           ; SOURCE LINE # 923
+                                           ; SOURCE LINE # 924
+0098 7F09              MOV     R7,#09H
+009A 22                RET     
+                                           ; SOURCE LINE # 925
+                                           ; SOURCE LINE # 926
+009B         ?C0111:
+                                           ; SOURCE LINE # 928
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 42  
+
+                                           ; SOURCE LINE # 929
+009B 120000      R     LCALL   L?0147
+                                           ; SOURCE LINE # 931
+009E 20000C      R     JB      bBit,?C0115
+                                           ; SOURCE LINE # 932
+                                           ; SOURCE LINE # 933
+00A1 120000      R     LCALL   L?0156
+                                           ; SOURCE LINE # 935
+00A4 200003      R     JB      bBit,?C0116
+                                           ; SOURCE LINE # 936
+                                           ; SOURCE LINE # 937
+00A7 7F03              MOV     R7,#03H
+00A9 22                RET     
+                                           ; SOURCE LINE # 938
+00AA         ?C0116:
+                                           ; SOURCE LINE # 940
+                                           ; SOURCE LINE # 941
+00AA 7F0B              MOV     R7,#0BH
+00AC 22                RET     
+                                           ; SOURCE LINE # 942
+                                           ; SOURCE LINE # 944
+00AD         ?C0115:
+                                           ; SOURCE LINE # 946
+                                           ; SOURCE LINE # 947
+00AD 120000      R     LCALL   L?0156
+                                           ; SOURCE LINE # 949
+00B0 200003      R     JB      bBit,?C0119
+                                           ; SOURCE LINE # 950
+                                           ; SOURCE LINE # 951
+00B3 7F0A              MOV     R7,#0AH
+00B5 22                RET     
+                                           ; SOURCE LINE # 952
+00B6         ?C0119:
+                                           ; SOURCE LINE # 954
+                                           ; SOURCE LINE # 955
+00B6 7F05              MOV     R7,#05H
+00B8 22                RET     
+                                           ; SOURCE LINE # 956
+                                           ; SOURCE LINE # 958
+                                           ; SOURCE LINE # 959
+                                           ; SOURCE LINE # 961
+00B9         ?C0121:
+                                           ; SOURCE LINE # 962
+00B9 120000      R     LCALL   L?0163
+                                           ; SOURCE LINE # 963
+00BC C200        R     CLR     bSec_Part
+                                           ; SOURCE LINE # 964
+00BE E4                CLR     A
+00BF F500        R     MOV     ucZero_Cnt,A
+                                           ; SOURCE LINE # 966
+00C1 30000C      R     JNB     bBit,?C0122
+                                           ; SOURCE LINE # 967
+                                           ; SOURCE LINE # 968
+00C4 120000      R     LCALL   L?0163
+                                           ; SOURCE LINE # 970
+00C7 200003      R     JB      bBit,?C0123
+                                           ; SOURCE LINE # 971
+                                           ; SOURCE LINE # 972
+00CA 7F0E              MOV     R7,#0EH
+00CC 22                RET     
+                                           ; SOURCE LINE # 973
+00CD         ?C0123:
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 43  
+
+                                           ; SOURCE LINE # 975
+                                           ; SOURCE LINE # 976
+00CD 7F0D              MOV     R7,#0DH
+00CF 22                RET     
+                                           ; SOURCE LINE # 977
+                                           ; SOURCE LINE # 978
+00D0         ?C0122:
+                                           ; SOURCE LINE # 980
+                                           ; SOURCE LINE # 981
+00D0 AF00        R     MOV     R7,array+01H
+00D2 AE00        R     MOV     R6,array
+00D4 120000      R     LCALL   _Getbit
+                                           ; SOURCE LINE # 982
+00D7 200003      R     JB      bBit,$ + 6H
+00DA 020000      R     LJMP    ?C0093
+                                           ; SOURCE LINE # 983
+                                           ; SOURCE LINE # 984
+00DD 7F06              MOV     R7,#06H
+                                           ; SOURCE LINE # 985
+                                           ; SOURCE LINE # 986
+                                           ; SOURCE LINE # 987
+                                           ; SOURCE LINE # 988
+                                           ; SOURCE LINE # 989
+                                           ; SOURCE LINE # 990
+                                           ; SOURCE LINE # 991
+00DF         ?C0100:
+00DF 22                RET     
+00E0         L?0144:
+00E0 AF00        R     MOV     R7,array+01H
+00E2 AE00        R     MOV     R6,array
+00E4 120000      R     LCALL   _Getbit
+00E7 22                RET     
+00E8         L?0146:
+00E8 AF00        R     MOV     R7,array+01H
+00EA AE00        R     MOV     R6,array
+00EC 120000      R     LCALL   _Getbit
+00EF 22                RET     
+00F0         L?0147:
+00F0 AF00        R     MOV     R7,array+01H
+00F2 AE00        R     MOV     R6,array
+00F4 120000      R     LCALL   _Getbit
+00F7 22                RET     
+00F8         L?0156:
+00F8 AF00        R     MOV     R7,array+01H
+00FA AE00        R     MOV     R6,array
+00FC 120000      R     LCALL   _Getbit
+00FF 22                RET     
+0100         L?0163:
+0100 AF00        R     MOV     R7,array+01H
+0102 AE00        R     MOV     R6,array
+0104 120000      R     LCALL   _Getbit
+0107 22                RET     
+             ; FUNCTION _Get_VLD (END)
+
+             ; FUNCTION _Getbit (BEGIN)
+                                           ; SOURCE LINE # 993
+;---- Variable 'array' assigned to Register 'DPTR' ----
+0000 8F82              MOV     DPL,R7
+0002 8E83              MOV     DPH,R6
+                                           ; SOURCE LINE # 994
+                                           ; SOURCE LINE # 995
+0004 E500        R     MOV     A,ucCnt
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 44  
+
+0006 700F              JNZ     ?C0127
+                                           ; SOURCE LINE # 996
+                                           ; SOURCE LINE # 997
+0008 E582              MOV     A,DPL
+000A 2500        R     ADD     A,uiCount+01H
+000C F582              MOV     DPL,A
+000E E583              MOV     A,DPH
+                                           ; SOURCE LINE # 998
+                                           ; SOURCE LINE # 999
+0010 120000      R     LCALL   L?0160
+0013 7002              JNZ     ?C0138
+0015 0500        R     INC     uiCount
+0017         ?C0138:
+                                           ; SOURCE LINE # 1000
+0017         ?C0127:
+                                           ; SOURCE LINE # 1002
+                                           ; SOURCE LINE # 1003
+0017 120000      R     LCALL   L?0161
+                                           ; SOURCE LINE # 1005
+001A 22                RET     
+             ; FUNCTION _Getbit (END)
+
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 45  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+ucCnt. . . . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0000H  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+bBit . . . . . . . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+P3 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B0H  1
+_RTDOSDW . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  array. . . . . . . . . . . . . . . .  AUTO     DATA   PTR      0000H  2
+  len. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0004H  1
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+_RTDSetByte. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  addr . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+  val. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+_RTDSetBit . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  addr . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+  and. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0002H  1
+  or . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0004H  1
+_I2CRead . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  addr . . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0000H  1
+  index. . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+  count. . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0001H  1
+  n. . . . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0002H  1
+Reg. . . . . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0000H  1
+_RTDCodeW. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  array. . . . . . . . . . . . . . . .  AUTO     DATA   PTR      0000H  2
+  len. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+  m. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+RTDSendStop. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_Load_VLC_Font . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  array. . . . . . . . . . . . . . . .  AUTO     DATA   PTR      0000H  2
+  start. . . . . . . . . . . . . . . .  AUTO     DATA   U_INT    0002H  2
+  length . . . . . . . . . . . . . . .  AUTO     DATA   U_INT    0004H  2
+  n. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+  m. . . . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0006H  1
+  ucTemp . . . . . . . . . . . . . . .  AUTO     DATA   ARRAY    0007H  3
+  ucTemp_VLD . . . . . . . . . . . . .  AUTO     IDATA  ARRAY    0000H  3
+r0 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0000H  1
+r1 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0001H  1
+RTDGetByte . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+r2 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0002H  1
+r3 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0003H  1
+r4 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0004H  1
+r5 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0005H  1
+r6 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0006H  1
+_I2CSendAddr . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  addr . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+  index. . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+  rd . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0003H  1
+r7 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0007H  1
+_I2CWrite. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  array. . . . . . . . . . . . . . . .  AUTO     DATA   PTR      0000H  3
+  n. . . . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0003H  1
+  len. . . . . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0004H  1
+SCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0098H  1
+TCON . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0088H  1
+_Getbit. . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  array. . . . . . . . . . . . . . . .  * REG *  DATA   PTR      0082H  2
+_I2CSendByte . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+C51 COMPILER V7.06   ACCESS                                                                11/21/2005 13:47:43 PAGE 46  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+  send . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+  m. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+_Get_VLD . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  array. . . . . . . . . . . . . . . .  AUTO     DATA   PTR      0000H  2
+  ucZero_Cnt . . . . . . . . . . . . .  AUTO     DATA   U_CHAR   0002H  1
+  bSec_Part. . . . . . . . . . . . . .  AUTO     DATA   BIT      0000H  1
+_RTDRead . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  index. . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+  count. . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0004H  1
+  inc. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0003H  1
+BitDly . . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_RTDSendAddr . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0006H  -----
+  addr . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+  rd . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+  inc. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0003H  1
+_I2CGetByte. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  ack. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+  r. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+  m. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+_RTDWrite. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  array. . . . . . . . . . . . . . . .  * REG *  DATA   PTR      0006H  1
+  len. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0004H  1
+  m. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+bRTD_SCSB. . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0095H  1
+bRTD_SCLK. . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0094H  1
+T2CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+ucByte_Temp. . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0001H  1
+uiCount. . . . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    0002H  2
+bRTD_SDIO_0. . . . . . . . . . . . . .  ABSBIT   -----  BIT      0090H  1
+_RTDSendByte . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0008H  -----
+  send . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+bIIC_SDA . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0097H  1
+I2CSendStop. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+bIIC_SCL . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0096H  1
+Data . . . . . . . . . . . . . . . . .  PUBLIC   DATA   ARRAY    0004H  16
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1511    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     21      25
+   IDATA SIZE       =   ----       3
+   BIT SIZE         =      1       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
